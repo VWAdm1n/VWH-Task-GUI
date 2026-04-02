@@ -14,8 +14,8 @@ export const msalConfig: Configuration = {
 export const loginRequest: PopupRequest = {
   scopes: [
     "User.Read",
-    "https://valwhitney.sharepoint.com/AllSites.Read",
-    "https://valwhitney.sharepoint.com/AllSites.Write",
+    "https://valwhitneyllc.sharepoint.com/AllSites.Read",
+    "https://valwhitneyllc.sharepoint.com/AllSites.Write",
   ],
 };
 
