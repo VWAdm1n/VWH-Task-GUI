@@ -1,5 +1,5 @@
 import { useMsal } from "@azure/msal-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export function useSharePointTasks() {
   const { instance, accounts } = useMsal();
@@ -7,38 +7,41 @@ export function useSharePointTasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchTasks = useCallback(async () => {
     if (accounts.length === 0) return;
 
-    const fetchTasks = async () => {
-      try {
-        const tokenResponse = await instance.acquireTokenSilent({
-          scopes: ["https://valwhitney.sharepoint.com/.default"],
-          account: accounts[0],
-        });
+    setLoading(true);
+    setError(null);
 
-        const response = await fetch("/api/tasks", {
-          headers: {
-            Authorization: `Bearer ${tokenResponse.accessToken}`,
-          },
-        });
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({
+        scopes: ["https://valwhitneyllc.sharepoint.com/.default"],
+        account: accounts[0],
+      });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "Failed to fetch tasks");
-        }
+      const response = await fetch("/api/tasks", {
+        headers: {
+          Authorization: `Bearer ${tokenResponse.accessToken}`,
+        },
+      });
 
-        const data = await response.json();
-        setTasks(data.value || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch tasks");
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Failed to fetch tasks");
       }
-    };
 
-    fetchTasks();
+      const data = await response.json();
+      setTasks(data.value || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch tasks");
+    } finally {
+      setLoading(false);
+    }
   }, [instance, accounts]);
 
-  return { tasks, loading, error };
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  return { tasks, loading, error, refetch: fetchTasks };
 }
