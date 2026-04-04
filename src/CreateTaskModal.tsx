@@ -51,21 +51,22 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div
         className="absolute inset-0 bg-black bg-opacity-60"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-lg bg-gray-900 rounded-xl shadow-2xl border border-gray-700 overflow-y-auto max-h-[90vh]">
+      {/* Sheet on mobile (slides from bottom), centered card on md+ */}
+      <div className="relative w-full md:max-w-lg bg-gray-900 md:rounded-xl shadow-2xl border border-gray-700 overflow-y-auto max-h-[92vh] md:max-h-[90vh] rounded-t-2xl md:rounded-t-xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white">New Task</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-800">
+          <h2 className="text-base md:text-lg font-semibold text-white">New Task</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl p-1">✕</button>
         </div>
 
         {/* Form */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 md:p-6 space-y-4">
 
           {/* Task Name — Required */}
           <div>
@@ -77,7 +78,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Clear, action-oriented description"
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -89,7 +90,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
             <select
               value={planName}
               onChange={(e) => setPlanName(e.target.value)}
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
             >
               <option value="">— Select Brand —</option>
               {PLAN_NAMES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -104,37 +105,37 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
             >
               <option value="">— Select Priority —</option>
               {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
 
-          {/* Phase — Optional */}
-          <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Phase</label>
-            <select
-              value={phase}
-              onChange={(e) => setPhase(e.target.value)}
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
-            >
-              <option value="">— Select Phase —</option>
-              {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-
-          {/* Quarter — Optional */}
-          <div>
-            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Quarter</label>
-            <select
-              value={quarter}
-              onChange={(e) => setQuarter(e.target.value)}
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
-            >
-              <option value="">— Select Quarter —</option>
-              {QUARTERS.map((q) => <option key={q} value={q}>{q}</option>)}
-            </select>
+          {/* Phase + Quarter — side by side on mobile too, they're short */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Phase</label>
+              <select
+                value={phase}
+                onChange={(e) => setPhase(e.target.value)}
+                className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">— Phase —</option>
+                {PHASES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">Quarter</label>
+              <select
+                value={quarter}
+                onChange={(e) => setQuarter(e.target.value)}
+                className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">— Quarter —</option>
+                {QUARTERS.map((q) => <option key={q} value={q}>{q}</option>)}
+              </select>
+            </div>
           </div>
 
           {/* Bucket Name — Optional */}
@@ -145,7 +146,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
               value={bucket}
               onChange={(e) => setBucket(e.target.value)}
               placeholder="e.g. Week 1, Q2 Sprint"
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -156,7 +157,7 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
+              className="w-full bg-gray-800 text-white text-sm rounded px-3 py-3 md:py-2 border border-gray-700 focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -179,18 +180,18 @@ export default function CreateTaskModal({ onClose, onSubmit }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-6 border-t border-gray-800">
+        <div className="flex gap-3 p-4 md:p-6 border-t border-gray-800">
           <button
             onClick={onClose}
             disabled={saving}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-2 transition-colors"
+            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-3 md:py-2 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-2 transition-colors"
+            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-3 md:py-2 transition-colors"
           >
             {saving ? "Creating..." : "Create Task"}
           </button>

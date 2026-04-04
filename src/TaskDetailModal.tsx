@@ -108,20 +108,22 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete }: Pro
         className="absolute inset-0 bg-black bg-opacity-60"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-lg bg-gray-900 h-full overflow-y-auto shadow-2xl flex flex-col">
+      {/* Panel — full width on mobile, max-w-lg on md+ */}
+      <div className="relative w-full md:max-w-lg bg-gray-900 h-full overflow-y-auto shadow-2xl flex flex-col">
 
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+        <div className="flex items-start justify-between p-4 md:p-6 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
           <div className="pr-4">
             <p className="text-xs text-gray-500 mb-1">#{task.ID} · {task.PlanName}</p>
-            <h2 className="text-lg font-semibold text-white leading-snug">{task.Title}</h2>
+            <h2 className="text-base md:text-lg font-semibold text-white leading-snug">{task.Title}</h2>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl mt-1">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl mt-1 p-1">✕</button>
         </div>
 
         {/* Body */}
-        <div className="p-6 flex-1">
-          <div className="grid grid-cols-2 gap-x-6">
+        <div className="p-4 md:p-6 flex-1">
+          {/* 1 col on mobile, 2 col on md+ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
             <Field label="Status" value={task.Status} />
             <Field label="Priority" value={task.field_8} />
             <Field label="Phase" value={task.field_4} />
@@ -195,21 +197,21 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete }: Pro
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-800 sticky bottom-0 bg-gray-900 space-y-3">
+        <div className="p-4 md:p-6 border-t border-gray-800 sticky bottom-0 bg-gray-900 space-y-3">
 
           {/* Row 1 — Save + Cancel Task */}
           <div className="flex gap-3">
             <button
               onClick={handleSave}
               disabled={saving || deleting}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-2 transition-colors"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded px-4 py-3 md:py-2 transition-colors"
             >
               {saving ? "Saving..." : saved ? "✅ Saved" : "Save Changes"}
             </button>
             <button
               onClick={handleCancel}
               disabled={saving || deleting}
-              className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-sm font-medium rounded px-4 py-2 transition-colors"
+              className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-sm font-medium rounded px-4 py-3 md:py-2 transition-colors"
             >
               {cancelling ? "Confirm Cancel?" : "Cancel Task"}
             </button>
@@ -220,7 +222,7 @@ export default function TaskDetailModal({ task, onClose, onSave, onDelete }: Pro
             <button
               onClick={() => setConfirmingDelete(true)}
               disabled={saving || deleting}
-              className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-400 hover:text-red-400 text-xs font-medium rounded px-4 py-2 border border-gray-700 transition-colors"
+              className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-400 hover:text-red-400 text-xs font-medium rounded px-4 py-3 md:py-2 border border-gray-700 transition-colors"
             >
               Delete Task
             </button>
