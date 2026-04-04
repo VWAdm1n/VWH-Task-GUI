@@ -319,4 +319,13 @@ export default function Dashboard() {
                   <SortHeader label="Due Date" field="DueDate_DT" />
                   <ColHeader label="Owner" field="Owner" filterKey="owner" filterOptions={ownerOptions} />
                   <ColHeader label="Assign To" field="Assign_x0020_To" filterKey="assignTo" filterOptions={assignToOptions} />
-                  {/* S
+                  {/* Shape-shifting — no sort/filter */}
+                  <th className="px-3 py-2 text-left align-top">
+                    <div className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">Hold Reason</div>
+                  </th>
+                  <th className="px-3 py-2 text-left align-top">
+                    <div className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">Block Reason</div>
+                  </th>
+                  <th className="px-3 py-2 text-left align-top">
+                    <div className="text-gray-400 text-xs uppercase font-semibold">Notes</div>
+                  </th>
