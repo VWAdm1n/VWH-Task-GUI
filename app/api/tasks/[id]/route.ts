@@ -6,7 +6,7 @@ const LOG_LIST_NAME = "Task_Log";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authHeader = req.headers.get("authorization");
 
@@ -14,7 +14,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No authorization header" }, { status: 401 });
   }
 
-  const id = params.id;
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "No task ID provided" }, { status: 400 });
   }
@@ -58,7 +58,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authHeader = req.headers.get("authorization");
 
@@ -66,7 +66,7 @@ export async function DELETE(
     return NextResponse.json({ error: "No authorization header" }, { status: 401 });
   }
 
-  const { id } = await Promise.resolve(params);
+  const { id } = await params;
   if (!id) {
     return NextResponse.json({ error: "No task ID provided" }, { status: 400 });
   }
@@ -79,7 +79,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Step 1 — Write audit log to Task_Log BEFORE deleting
   const timestamp = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
     year: "numeric",
@@ -131,7 +130,6 @@ export async function DELETE(
     );
   }
 
-  // Step 2 — Delete from SharePoint only after audit log confirmed
   try {
     const deleteUrl = `${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items(${id})`;
 
