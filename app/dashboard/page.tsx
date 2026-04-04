@@ -297,7 +297,6 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead className="bg-gray-900 border-b border-gray-800">
                 <tr>
-                  {/* Task ID */}
                   <th className="px-3 py-2 text-left align-top w-16">
                     <div
                       className="flex items-center gap-1 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold"
@@ -319,7 +318,6 @@ export default function Dashboard() {
                   <SortHeader label="Due Date" field="DueDate_DT" />
                   <ColHeader label="Owner" field="Owner" filterKey="owner" filterOptions={ownerOptions} />
                   <ColHeader label="Assign To" field="Assign_x0020_To" filterKey="assignTo" filterOptions={assignToOptions} />
-                  {/* Shape-shifting — no sort/filter */}
                   <th className="px-3 py-2 text-left align-top">
                     <div className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">Hold Reason</div>
                   </th>
@@ -329,3 +327,144 @@ export default function Dashboard() {
                   <th className="px-3 py-2 text-left align-top">
                     <div className="text-gray-400 text-xs uppercase font-semibold">Notes</div>
                   </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={17} className="px-4 py-8 text-center text-gray-500">
+                      No tasks match the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((task) => (
+                    <tr
+                      key={task.ID}
+                      onClick={() => setSelectedTask(task)}
+                      className="hover:bg-gray-900 transition-colors cursor-pointer"
+                    >
+                      <td className="px-3 py-3 text-gray-500 text-xs font-mono w-16">#{task.ID}</td>
+                      <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">{task.Title}</td>
+                      <td className="px-3 py-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
+                          {task.PlanName || "—"}
+                        </span>
+                      </td>
+                      <td className={`px-3 py-3 text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>
+                        {task.field_8 || "—"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
+                          {task.Status || "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        {task.Flag && task.Flag !== "None" ? (
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
+                            {task.Flag}
+                          </span>
+                        ) : <span className="text-gray-700">—</span>}
+                      </td>
+                      <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_4 || "—"}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs">{task.field_3 || "—"}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
+                        {formatDate(task.StartDate_x0028_DT_x0029_)}
+                      </td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
+                        {formatDate(task.DueDate_DT)}
+                      </td>
+                      <td className="px-3 py-3 text-gray-300 text-xs">{task.Owner?.Title || "—"}</td>
+                      <td className="px-3 py-3 text-gray-300 text-xs">{task.Assign_x0020_To?.Title || "—"}</td>
+                      <td className="px-3 py-3">
+                        {task.HoldReason ? (
+                          <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span>
+                        ) : (
+                          <span className="text-transparent text-xs select-none">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        {task.BlockReason ? (
+                          <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span>
+                        ) : (
+                          <span className="text-transparent text-xs select-none">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">
+                        {task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card Stack */}
+          <div className="md:hidden flex flex-col gap-3">
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">No tasks match the selected filters.</p>
+            ) : (
+              filtered.map((task) => (
+                <div
+                  key={task.ID}
+                  onClick={() => setSelectedTask(task)}
+                  className="bg-gray-900 border border-gray-800 rounded-lg p-4 cursor-pointer active:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <span className="text-white font-medium text-sm leading-snug flex-1">{task.Title}</span>
+                    <span className="text-gray-600 text-xs font-mono shrink-0">#{task.ID}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
+                      {task.PlanName || "—"}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
+                      {task.Status || "—"}
+                    </span>
+                    {task.Flag && task.Flag !== "None" && (
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
+                        {task.Flag}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                    <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
+                    <span>{formatDate(task.DueDate_DT)}</span>
+                  </div>
+                  {(task.field_3 || task.field_4) && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      {[task.field_3, task.field_4].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                  {task.HoldReason && (
+                    <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>
+                  )}
+                  {task.BlockReason && (
+                    <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
+      )}
+      {showCreateModal && (
+        <CreateTaskModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreate}
+        />
+      )}
+    </main>
+  );
+}
