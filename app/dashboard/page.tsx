@@ -54,17 +54,10 @@ interface Filters {
   phase: string; quarter: string; owner: string; assignTo: string;
 }
 
-// Hover-reveal flyout — no click needed, smooth fade in/out
 function HoverFilter({
-  value,
-  options,
-  onChange,
-  active,
+  value, options, onChange, active,
 }: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-  active: boolean;
+  value: string; options: string[]; onChange: (v: string) => void; active: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,38 +77,58 @@ function HoverFilter({
     setVisible(false);
   };
 
+  const flyoutStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    marginTop: "4px",
+    zIndex: 9999,
+    opacity: visible ? 1 : 0,
+    pointerEvents: visible ? "auto" : "none",
+    transform: visible ? "translateY(0)" : "translateY(-4px)",
+    transition: "opacity 180ms ease, transform 180ms ease",
+    backgroundColor: "#1f2937",
+    border: "1px solid #374151",
+    borderRadius: "8px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+    minWidth: "180px",
+    maxHeight: "192px",
+    overflowY: "auto",
+    padding: "4px 0",
+  };
+
   return (
-    <div className="relative inline-flex items-center" onMouseEnter={show} onMouseLeave={hide}>
-      {/* Trigger indicator */}
+    <div
+      style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+    >
       <span
-        className={`ml-1 text-xs select-none transition-colors duration-150 ${
-          active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"
-        }`}
+        style={{ marginLeft: "4px", fontSize: "11px", userSelect: "none", transition: "color 150ms" }}
+        className={active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"}
       >
         ▾
       </span>
-
-      {/* Flyout dropdown */}
-      <div
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        style={{
-          opacity: visible ? 1 : 0,
-          pointerEvents: visible ? "auto" : "none",
-          transform: visible ? "translateY(0)" : "translateY(-4px)",
-          transition: "opacity 180ms ease, transform 180ms ease",
-        }}
-        className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[150px] py-1 overflow-hidden"
-      >
+      <div style={flyoutStyle} onMouseEnter={show} onMouseLeave={hide}>
         {options.map((o) => (
           <button
             key={o}
             onMouseDown={(e) => { e.preventDefault(); select(o); }}
-            className={`w-full text-left px-3 py-1.5 text-xs transition-colors duration-100 ${
-              value === o
-                ? "text-blue-300 bg-blue-900/50 font-medium"
-                : "text-gray-300 hover:bg-gray-700 hover:text-white"
-            }`}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "6px 12px",
+              fontSize: "12px",
+              background: value === o ? "rgba(59,130,246,0.3)" : "transparent",
+              color: value === o ? "#93c5fd" : "#d1d5db",
+              fontWeight: value === o ? 600 : 400,
+              border: "none",
+              cursor: "pointer",
+              transition: "background 100ms",
+            }}
+            onMouseEnter={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "#374151"; }}
+            onMouseLeave={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "transparent"; }}
           >
             {o}
           </button>
@@ -282,7 +295,6 @@ export default function Dashboard() {
     } catch (err: any) { alert("Create failed: " + err.message); }
   };
 
-  // Sort-only header
   const SortHeader = ({ label, field, className = "" }: { label: string; field: SortField; className?: string }) => (
     <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <div
@@ -294,13 +306,12 @@ export default function Dashboard() {
     </th>
   );
 
-  // Sort + hover-reveal filter header
   const ColHeader = ({
     label, field, filterKey, filterOptions, className = "",
   }: {
     label: string; field: SortField; filterKey: keyof Filters; filterOptions: string[]; className?: string;
   }) => (
-    <th className={`px-3 py-3 text-left align-middle ${className}`}>
+    <th className={`px-3 py-3 text-left align-middle ${className}`} style={{ overflow: "visible" }}>
       <div className="flex items-center gap-0.5 whitespace-nowrap">
         <span
           className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors duration-150 text-xs uppercase font-semibold"
@@ -318,7 +329,6 @@ export default function Dashboard() {
     </th>
   );
 
-  // Static header — no sort, no filter
   const StaticHeader = ({ label, className = "" }: { label: string; className?: string }) => (
     <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <span className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">{label}</span>
@@ -327,7 +337,6 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-4 md:p-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">VWH Task Command</h1>
@@ -361,10 +370,13 @@ export default function Dashboard() {
       {!loading && !error && (
         <>
           {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-800">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-gray-800">
-                <tr>
+          <div
+            className="hidden md:block rounded-lg border border-gray-800"
+            style={{ overflowX: "auto", overflowY: "visible" }}
+          >
+            <table className="w-full text-sm" style={{ overflow: "visible" }}>
+              <thead className="bg-gray-900 border-b border-gray-800" style={{ overflow: "visible" }}>
+                <tr style={{ overflow: "visible" }}>
                   <SortHeader label="Task ID" field="ID" className="w-16" />
                   <SortHeader label="Task Name" field="Title" />
                   <ColHeader label="Brand" field="PlanName" filterKey="brand" filterOptions={BRANDS} />
