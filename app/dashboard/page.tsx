@@ -876,5 +876,3 @@ export default function Dashboard() {
     </main>
   );
 }
-
-// Line count: 891
