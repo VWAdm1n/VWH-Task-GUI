@@ -63,21 +63,12 @@ interface Filters {
 
 const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
 
-// ── Toast ─────────────────────────────────────────────────────────────────
 function SavedToast({ visible }: { visible: boolean }) {
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: "24px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 99999,
-        opacity: visible ? 1 : 0,
-        transition: "opacity 300ms ease",
-        pointerEvents: "none",
-      }}
-    >
+    <div style={{
+      position: "fixed", top: "24px", left: "50%", transform: "translateX(-50%)",
+      zIndex: 99999, opacity: visible ? 1 : 0, transition: "opacity 300ms ease", pointerEvents: "none",
+    }}>
       <div className="bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2">
         ✅ Saved
       </div>
@@ -85,13 +76,8 @@ function SavedToast({ visible }: { visible: boolean }) {
   );
 }
 
-// ── Inline panel — details + edit modes ───────────────────────────────────
 function InlinePanel({
-  task,
-  onSave,
-  onDelete,
-  onClose,
-  onShowToast,
+  task, onSave, onDelete, onClose, onShowToast,
 }: {
   task: any;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
@@ -100,28 +86,19 @@ function InlinePanel({
   onShowToast: () => void;
 }) {
   const [mode, setMode] = useState<PanelMode>("details");
-
-  // Edit state — all editable fields
   const [title, setTitle] = useState(task.Title || "");
   const [brand, setBrand] = useState(task.PlanName || "VW");
   const [priority, setPriority] = useState(task.field_8 || "Normal");
   const [phase, setPhase] = useState(task.field_4 || "");
   const [quarter, setQuarter] = useState(task.field_5 || "");
   const [bucket, setBucket] = useState(task.field_3 || "");
-  const [startDate, setStartDate] = useState(
-    task.StartDate_x0028_DT_x0029_ ? task.StartDate_x0028_DT_x0029_.substring(0, 10) : ""
-  );
-  const [dueDate, setDueDate] = useState(
-    task.DueDate_DT ? task.DueDate_DT.substring(0, 10) : ""
-  );
+  const [startDate, setStartDate] = useState(task.StartDate_x0028_DT_x0029_ ? task.StartDate_x0028_DT_x0029_.substring(0, 10) : "");
+  const [dueDate, setDueDate] = useState(task.DueDate_DT ? task.DueDate_DT.substring(0, 10) : "");
   const [progress, setProgress] = useState(task.field_6 || "0%");
   const [flag, setFlag] = useState(task.Flag || "None");
   const [holdReason, setHoldReason] = useState(task.HoldReason || "");
-  const [resumeDate, setResumeDate] = useState(
-    task.ResumeDate ? task.ResumeDate.substring(0, 10) : ""
-  );
+  const [resumeDate, setResumeDate] = useState(task.ResumeDate ? task.ResumeDate.substring(0, 10) : "");
   const [notes, setNotes] = useState(task.field_11 || "");
-
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -137,65 +114,43 @@ function InlinePanel({
     setSaving(true);
     try {
       await onSave(task.ID, {
-        Title: title,
-        PlanName: brand,
-        field_8: priority,
-        field_4: phase || null,
-        field_5: quarter || null,
-        field_3: bucket || null,
-        StartDate_x0028_DT_x0029_: startDate || null,
-        DueDate_DT: dueDate || null,
-        field_6: progress,
-        Flag: flag,
+        Title: title, PlanName: brand, field_8: priority,
+        field_4: phase || null, field_5: quarter || null, field_3: bucket || null,
+        StartDate_x0028_DT_x0029_: startDate || null, DueDate_DT: dueDate || null,
+        field_6: progress, Flag: flag,
         HoldReason: flag === "On Hold" ? holdReason : "",
         ResumeDate: flag === "On Hold" && resumeDate ? resumeDate : null,
         field_11: notes || null,
       });
       setMode("details");
       onShowToast();
-    } catch {
-      alert("Save failed. Please try again.");
-    } finally {
-      setSaving(false);
-    }
+    } catch { alert("Save failed. Please try again."); }
+    finally { setSaving(false); }
   };
 
   const handleCancelTask = async () => {
     if (!cancelling) { setCancelling(true); return; }
     setSaving(true);
-    try {
-      await onSave(task.ID, { Status: "Cancelled" });
-      onClose();
-    } catch {
-      alert("Failed. Please try again.");
-    } finally {
-      setSaving(false);
-    }
+    try { await onSave(task.ID, { Status: "Cancelled" }); onClose(); }
+    catch { alert("Failed. Please try again."); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true);
-    try {
-      await onDelete(task.ID, task.PlanName ?? "");
-      onClose();
-    } catch {
-      alert("Failed. Please try again.");
-    } finally {
-      setDeleting(false);
-    }
+    try { await onDelete(task.ID, task.PlanName ?? ""); onClose(); }
+    catch { alert("Failed. Please try again."); }
+    finally { setDeleting(false); }
   };
 
   const inputClass = "w-full bg-gray-700 text-white text-sm rounded px-3 py-1.5 border border-gray-600 focus:outline-none focus:border-blue-500";
   const labelClass = "text-xs text-gray-500 uppercase tracking-wide mb-1 block";
 
-  // ── Mode 1: Task Details ─────────────────────────────────────────────
   if (mode === "details") {
     return (
       <div className="w-full">
         <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Task Details</p>
-
-        {/* Read-only grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 mb-4 text-sm">
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Task Name</span><span className="text-gray-200">{task.Title}</span></div>
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Brand</span><span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>{task.PlanName || "—"}</span></div>
@@ -214,51 +169,22 @@ function InlinePanel({
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Has Dependencies</span><span className="text-gray-200">{task.HasDependencies ? "Yes" : "No"}</span></div>
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Checklist Progress</span><span className="text-gray-200">{task.ChecklistProgress != null ? `${task.ChecklistProgress}%` : "—"}</span></div>
         </div>
-
-        {task.HoldReason && (
-          <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Hold Reason</span><span className="text-yellow-300 text-sm italic">{task.HoldReason}</span></div>
-        )}
-        {task.BlockReason && (
-          <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>
-        )}
-        {task.field_11 && (
-          <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>
-        )}
-
+        {task.HoldReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Hold Reason</span><span className="text-yellow-300 text-sm italic">{task.HoldReason}</span></div>}
+        {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
+        {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-4" />
-
-        {/* Mode 1 buttons — centered, compact */}
-        <div className="flex justify-center gap-3">
-          <button
-            onClick={() => setMode("edit")}
-            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded px-4 py-1.5 transition-colors"
-          >
-            Edit
-          </button>
-          <button
-            onClick={handleCancelTask}
-            disabled={saving}
-            className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-xs font-medium rounded px-4 py-1.5 transition-colors"
-          >
-            {cancelling ? "Confirm?" : "Cancel"}
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="bg-gray-800 hover:bg-red-900 disabled:opacity-50 text-gray-400 hover:text-red-300 text-xs font-medium rounded px-4 py-1.5 border border-gray-700 transition-colors"
-          >
-            {confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}
-          </button>
+        <div className="w-full flex justify-center gap-3 mt-2">
+          <button onClick={() => setMode("edit")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded px-4 py-1.5 transition-colors">Edit</button>
+          <button onClick={handleCancelTask} disabled={saving} className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-xs font-medium rounded px-4 py-1.5 transition-colors">{cancelling ? "Confirm?" : "Cancel"}</button>
+          <button onClick={handleDelete} disabled={deleting} className="bg-gray-800 hover:bg-red-900 disabled:opacity-50 text-gray-400 hover:text-red-300 text-xs font-medium rounded px-4 py-1.5 border border-gray-700 transition-colors">{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
         </div>
       </div>
     );
   }
 
-  // ── Mode 2: Edit ─────────────────────────────────────────────────────
   return (
     <div className="w-full">
-      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit Task — #{task.ID}</p>
-
+      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2">
           <label className={labelClass}>Task Name</label>
@@ -331,68 +257,34 @@ function InlinePanel({
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Add notes…" className={`${inputClass} resize-none`} />
         </div>
       </div>
-
       <hr className="border-gray-700 mb-4" />
-
-      {/* Mode 2 buttons — centered, compact */}
-      <div className="flex justify-center gap-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded px-6 py-1.5 transition-colors"
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button
-          onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }}
-          disabled={saving}
-          className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium rounded px-6 py-1.5 transition-colors"
-        >
-          Cancel
-        </button>
+      <div className="w-full flex justify-center gap-3 mt-2">
+        <button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded px-6 py-1.5 transition-colors">{saving ? "Saving…" : "Save"}</button>
+        <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium rounded px-6 py-1.5 transition-colors">Cancel</button>
       </div>
     </div>
   );
 }
 
-// ── HoverFilter ────────────────────────────────────────────────────────────
-function HoverFilter({
-  value, options, onChange, active,
-}: {
+function HoverFilter({ value, options, onChange, active }: {
   value: string; options: string[]; onChange: (v: string) => void; active: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const show = useCallback(() => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setVisible(true);
-  }, []);
-
-  const hide = useCallback(() => {
-    hideTimer.current = setTimeout(() => setVisible(false), 250);
-  }, []);
-
-  const select = (v: string) => {
-    onChange(v);
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setVisible(false);
-  };
+  const show = useCallback(() => { if (hideTimer.current) clearTimeout(hideTimer.current); setVisible(true); }, []);
+  const hide = useCallback(() => { hideTimer.current = setTimeout(() => setVisible(false), 250); }, []);
+  const select = (v: string) => { onChange(v); if (hideTimer.current) clearTimeout(hideTimer.current); setVisible(false); };
 
   const flyoutStyle: React.CSSProperties = {
-    position: "absolute", top: "100%", left: 0, marginTop: "4px",
-    zIndex: 9999, opacity: visible ? 1 : 0,
-    pointerEvents: visible ? "auto" : "none",
-    transition: "opacity 200ms ease",
-    backgroundColor: "#1f2937", border: "1px solid #374151",
-    borderRadius: "8px", boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
-    minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0",
+    position: "absolute", top: "100%", left: 0, marginTop: "4px", zIndex: 9999,
+    opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity 200ms ease",
+    backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.6)", minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0",
   };
 
   return (
     <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }} onMouseEnter={show} onMouseLeave={hide}>
-      <span style={{ marginLeft: "4px", fontSize: "11px", userSelect: "none", transition: "color 150ms" }}
-        className={active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"}>▾</span>
+      <span style={{ marginLeft: "4px", fontSize: "11px", userSelect: "none", transition: "color 150ms" }} className={active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"}>▾</span>
       <div style={flyoutStyle} onMouseEnter={show} onMouseLeave={hide}>
         {options.map((o, i) => (
           <button key={o} onMouseDown={(e) => { e.preventDefault(); select(o); }}
@@ -400,8 +292,8 @@ function HoverFilter({
               display: "block", width: "100%", textAlign: "left", padding: "6px 12px", fontSize: "12px",
               background: value === o ? "rgba(59,130,246,0.3)" : "transparent",
               color: value === o ? "#93c5fd" : "#d1d5db", fontWeight: value === o ? 600 : 400,
-              border: "none", cursor: "pointer",
-              opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-6px)",
+              border: "none", cursor: "pointer", opacity: visible ? 1 : 0,
+              transform: visible ? "translateY(0)" : "translateY(-6px)",
               transition: visible ? `opacity 180ms ease ${i * 60}ms, transform 180ms ease ${i * 60}ms` : "opacity 100ms ease, transform 100ms ease",
             }}
             onMouseEnter={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "#374151"; }}
@@ -418,7 +310,6 @@ function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField:
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-// ── TaskCard ───────────────────────────────────────────────────────────────
 function TaskCard({ task, expanded, onToggle, onSave, onDelete, onShowToast, formatDate, truncate }: {
   task: any; expanded: boolean; onToggle: () => void;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
@@ -440,9 +331,7 @@ function TaskCard({ task, expanded, onToggle, onSave, onDelete, onShowToast, for
         <div className="flex flex-wrap gap-2 mb-2">
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>{task.PlanName || "—"}</span>
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>{task.Status || "—"}</span>
-          {task.Flag && task.Flag !== "None" && (
-            <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span>
-          )}
+          {task.Flag && task.Flag !== "None" && <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span>}
         </div>
         <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
           <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
@@ -463,7 +352,6 @@ function TaskCard({ task, expanded, onToggle, onSave, onDelete, onShowToast, for
   );
 }
 
-// ── BucketGroupedCards ─────────────────────────────────────────────────────
 function BucketGroupedCards({ tasks, onSave, onDelete, onShowToast, formatDate, truncate }: {
   tasks: any[];
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
@@ -532,15 +420,11 @@ function BucketGroupedCards({ tasks, onSave, onDelete, onShowToast, formatDate, 
               <div className="flex flex-col gap-3 pb-1">
                 {bucketTasks.map((task) => (
                   <TaskCard
-                    key={task.ID}
-                    task={task}
+                    key={task.ID} task={task}
                     expanded={expandedId === task.ID}
                     onToggle={() => setExpandedId((prev) => (prev === task.ID ? null : task.ID))}
-                    onSave={onSave}
-                    onDelete={onDelete}
-                    onShowToast={onShowToast}
-                    formatDate={formatDate}
-                    truncate={truncate}
+                    onSave={onSave} onDelete={onDelete} onShowToast={onShowToast}
+                    formatDate={formatDate} truncate={truncate}
                   />
                 ))}
               </div>
@@ -552,7 +436,6 @@ function BucketGroupedCards({ tasks, onSave, onDelete, onShowToast, formatDate, 
   );
 }
 
-// ── Dashboard ──────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const isAuthenticated = useIsAuthenticated();
   const router = useRouter();
@@ -742,7 +625,6 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-gray-950 text-white p-4 md:p-6">
       <SavedToast visible={toastVisible} />
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">VWH Task Command</h1>
@@ -764,9 +646,7 @@ export default function Dashboard() {
             <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>☰ List</button>
             <button onClick={() => setViewMode("card")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>⊞ Cards</button>
           </div>
-          <button onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors">
-            + New Task
-          </button>
+          <button onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors">+ New Task</button>
         </div>
       </div>
 
@@ -775,12 +655,9 @@ export default function Dashboard() {
 
       {!loading && !error && (
         <>
-          {/* Mobile */}
           <div className="md:hidden">
             <BucketGroupedCards tasks={filtered} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} formatDate={formatDate} truncate={truncate} />
           </div>
-
-          {/* Tablet + Desktop */}
           <div className="hidden md:block">
             {viewMode === "card" ? (
               <BucketGroupedCards tasks={filtered} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} formatDate={formatDate} truncate={truncate} />
@@ -821,19 +698,12 @@ export default function Dashboard() {
                           >
                             <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
                             <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">
-                              <span className="flex items-center gap-2">
-                                {task.Title}
-                                <span className={`text-gray-600 text-xs transition-transform duration-200 ${expandedRowId === task.ID ? "rotate-180" : ""}`}>▼</span>
-                              </span>
+                              <span className="flex items-center gap-2">{task.Title}<span className={`text-gray-600 text-xs transition-transform duration-200 ${expandedRowId === task.ID ? "rotate-180" : ""}`}>▼</span></span>
                             </td>
                             <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>{task.PlanName || "—"}</span></td>
                             <td className={`px-3 py-3 text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>{task.field_8 || "—"}</td>
                             <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>{task.Status || "—"}</span></td>
-                            <td className="px-3 py-3">
-                              {task.Flag && task.Flag !== "None"
-                                ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span>
-                                : <span className="text-gray-700">—</span>}
-                            </td>
+                            <td className="px-3 py-3">{task.Flag && task.Flag !== "None" ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span> : <span className="text-gray-700">—</span>}</td>
                             <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
                             <td className="px-3 py-3 text-gray-400 text-xs max-w-[160px] truncate">{task.field_4 || "—"}</td>
                             <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
@@ -849,13 +719,7 @@ export default function Dashboard() {
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
                               <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700">
-                                <InlinePanel
-                                  task={task}
-                                  onSave={handleSave}
-                                  onDelete={handleDelete}
-                                  onClose={() => setExpandedRowId(null)}
-                                  onShowToast={showToast}
-                                />
+                                <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
                               </td>
                             </tr>
                           )}
