@@ -63,6 +63,18 @@ interface Filters {
 
 const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
 
+const btnBase: React.CSSProperties = {
+  display: "inline-block",
+  margin: "0 6px",
+  padding: "6px 16px",
+  fontSize: "12px",
+  fontWeight: 500,
+  borderRadius: "6px",
+  cursor: "pointer",
+  border: "none",
+  transition: "background 150ms",
+};
+
 function SavedToast({ visible }: { visible: boolean }) {
   return (
     <div style={{
@@ -76,9 +88,7 @@ function SavedToast({ visible }: { visible: boolean }) {
   );
 }
 
-function InlinePanel({
-  task, onSave, onDelete, onClose, onShowToast,
-}: {
+function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
   task: any;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
@@ -149,7 +159,7 @@ function InlinePanel({
 
   if (mode === "details") {
     return (
-      <div className="w-full">
+      <div style={{ width: "100%" }}>
         <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Task Details</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 mb-4 text-sm">
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Task Name</span><span className="text-gray-200">{task.Title}</span></div>
@@ -173,17 +183,17 @@ function InlinePanel({
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-4" />
-        <div style={{ width: "100%", display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-          <button onClick={() => setMode("edit")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded px-4 py-1.5 transition-colors">Edit</button>
-          <button onClick={handleCancelTask} disabled={saving} className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-xs font-medium rounded px-4 py-1.5 transition-colors">{cancelling ? "Confirm?" : "Cancel"}</button>
-          <button onClick={handleDelete} disabled={deleting} className="bg-gray-800 hover:bg-red-900 disabled:opacity-50 text-gray-400 hover:text-red-300 text-xs font-medium rounded px-4 py-1.5 border border-gray-700 transition-colors">{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
+        <div style={{ textAlign: "center", marginTop: "8px" }}>
+          <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}>Edit</button>
+          <button onClick={handleCancelTask} disabled={saving} style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}>{cancelling ? "Confirm?" : "Cancel"}</button>
+          <button onClick={handleDelete} disabled={deleting} style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}>{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
+    <div style={{ width: "100%" }}>
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2">
@@ -258,9 +268,9 @@ function InlinePanel({
         </div>
       </div>
       <hr className="border-gray-700 mb-4" />
-      <div style={{ width: "100%", display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-        <button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded px-6 py-1.5 transition-colors">{saving ? "Saving…" : "Save"}</button>
-        <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium rounded px-6 py-1.5 transition-colors">Cancel</button>
+      <div style={{ textAlign: "center", marginTop: "8px" }}>
+        <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+        <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} style={{ ...btnBase, background: "#374151", color: "#d1d5db", opacity: saving ? 0.5 : 1 }}>Cancel</button>
       </div>
     </div>
   );
@@ -718,12 +728,10 @@ export default function Dashboard() {
                           </tr>
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
-                              <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700" style={{ width: "100%" }}>
-                                <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                              <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700">
                                 <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
-                                </div>
                               </td>
-                            </tr>f
+                            </tr>
                           )}
                         </>
                       ))
