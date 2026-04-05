@@ -173,7 +173,7 @@ function InlinePanel({
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-4" />
-        <div className="w-full flex justify-center gap-3 mt-2">
+        <div style={{ width: "100%", display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
           <button onClick={() => setMode("edit")} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded px-4 py-1.5 transition-colors">Edit</button>
           <button onClick={handleCancelTask} disabled={saving} className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-xs font-medium rounded px-4 py-1.5 transition-colors">{cancelling ? "Confirm?" : "Cancel"}</button>
           <button onClick={handleDelete} disabled={deleting} className="bg-gray-800 hover:bg-red-900 disabled:opacity-50 text-gray-400 hover:text-red-300 text-xs font-medium rounded px-4 py-1.5 border border-gray-700 transition-colors">{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
@@ -258,7 +258,7 @@ function InlinePanel({
         </div>
       </div>
       <hr className="border-gray-700 mb-4" />
-      <div className="w-full flex justify-center gap-3 mt-2">
+      <div style={{ width: "100%", display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
         <button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded px-6 py-1.5 transition-colors">{saving ? "Saving…" : "Save"}</button>
         <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium rounded px-6 py-1.5 transition-colors">Cancel</button>
       </div>
@@ -723,7 +723,7 @@ export default function Dashboard() {
                                 <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
                                 </div>
                               </td>
-                            </tr>
+                            </tr>f
                           )}
                         </>
                       ))
