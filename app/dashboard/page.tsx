@@ -2,7 +2,7 @@
 
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useSharePointTasks } from "../../src/useSharePointTasks";
 import TaskDetailModal from "../../src/TaskDetailModal";
 import CreateTaskModal from "../../src/CreateTaskModal";
@@ -54,55 +54,73 @@ interface Filters {
   phase: string; quarter: string; owner: string; assignTo: string;
 }
 
-// Flyout filter — appears on click, dismisses on selection or click-away
-function FlyoutFilter({
-  value, options, onChange, active,
+// Hover-reveal flyout — no click needed, smooth fade in/out
+function HoverFilter({
+  value,
+  options,
+  onChange,
+  active,
 }: {
-  value: string; options: string[]; onChange: (v: string) => void; active: boolean;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  active: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+  const show = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setVisible(true);
   }, []);
 
+  const hide = useCallback(() => {
+    hideTimer.current = setTimeout(() => setVisible(false), 200);
+  }, []);
+
+  const select = (v: string) => {
+    onChange(v);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setVisible(false);
+  };
+
   return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className={`ml-1 text-xs px-1 rounded transition-colors ${
-          active ? "text-blue-400 bg-blue-900/40" : "text-gray-600 hover:text-gray-400"
+    <div className="relative inline-flex items-center" onMouseEnter={show} onMouseLeave={hide}>
+      {/* Trigger indicator */}
+      <span
+        className={`ml-1 text-xs select-none transition-colors duration-150 ${
+          active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"
         }`}
-        title="Filter"
       >
         ▾
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded shadow-xl min-w-[140px] py-1">
-          {options.map((o) => (
-            <button
-              key={o}
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange(o);
-                setOpen(false);
-              }}
-              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-                value === o
-                  ? "text-blue-300 bg-blue-900/40"
-                  : "text-gray-300 hover:bg-gray-700"
-              }`}
-            >
-              {o}
-            </button>
-          ))}
-        </div>
-      )}
+      </span>
+
+      {/* Flyout dropdown */}
+      <div
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        style={{
+          opacity: visible ? 1 : 0,
+          pointerEvents: visible ? "auto" : "none",
+          transform: visible ? "translateY(0)" : "translateY(-4px)",
+          transition: "opacity 180ms ease, transform 180ms ease",
+        }}
+        className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[150px] py-1 overflow-hidden"
+      >
+        {options.map((o) => (
+          <button
+            key={o}
+            onMouseDown={(e) => { e.preventDefault(); select(o); }}
+            className={`w-full text-left px-3 py-1.5 text-xs transition-colors duration-100 ${
+              value === o
+                ? "text-blue-300 bg-blue-900/50 font-medium"
+                : "text-gray-300 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -133,6 +151,11 @@ export default function Dashboard() {
 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
+
+  const clearFilters = () => setFilters({
+    brand: "All", status: "All", priority: "All", flag: "All",
+    phase: "All", quarter: "All", owner: "All", assignTo: "All",
+  });
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -259,11 +282,11 @@ export default function Dashboard() {
     } catch (err: any) { alert("Create failed: " + err.message); }
   };
 
-  // Sortable column header — sort only, no filter
+  // Sort-only header
   const SortHeader = ({ label, field, className = "" }: { label: string; field: SortField; className?: string }) => (
     <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <div
-        className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold whitespace-nowrap"
+        className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors duration-150 text-xs uppercase font-semibold whitespace-nowrap"
         onClick={() => handleSort(field)}
       >
         {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
@@ -271,7 +294,7 @@ export default function Dashboard() {
     </th>
   );
 
-  // Sortable + filterable column header — flyout on click
+  // Sort + hover-reveal filter header
   const ColHeader = ({
     label, field, filterKey, filterOptions, className = "",
   }: {
@@ -280,12 +303,12 @@ export default function Dashboard() {
     <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <div className="flex items-center gap-0.5 whitespace-nowrap">
         <span
-          className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold"
+          className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors duration-150 text-xs uppercase font-semibold"
           onClick={() => handleSort(field)}
         >
           {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
         </span>
-        <FlyoutFilter
+        <HoverFilter
           value={filters[filterKey]}
           options={filterOptions}
           onChange={(v) => setFilter(filterKey, v)}
@@ -295,7 +318,7 @@ export default function Dashboard() {
     </th>
   );
 
-  // Static header — no sort, no filter (Reason fields, Notes)
+  // Static header — no sort, no filter
   const StaticHeader = ({ label, className = "" }: { label: string; className?: string }) => (
     <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <span className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">{label}</span>
@@ -314,8 +337,8 @@ export default function Dashboard() {
                 {filtered.length} of {tasks.length} tasks
                 {activeFilterCount > 0 && (
                   <button
-                    onClick={() => setFilters({ brand: "All", status: "All", priority: "All", flag: "All", phase: "All", quarter: "All", owner: "All", assignTo: "All" })}
-                    className="ml-3 text-xs text-blue-400 hover:text-blue-300 underline"
+                    onClick={clearFilters}
+                    className="ml-3 text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
                   >
                     Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
                   </button>
@@ -373,7 +396,7 @@ export default function Dashboard() {
                     <tr
                       key={task.ID}
                       onClick={() => setSelectedTask(task)}
-                      className="hover:bg-gray-900 transition-colors cursor-pointer"
+                      className="hover:bg-gray-900 transition-colors duration-100 cursor-pointer"
                     >
                       <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
                       <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">{task.Title}</td>
