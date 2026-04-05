@@ -4,7 +4,6 @@ import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useSharePointTasks } from "../../src/useSharePointTasks";
-import TaskDetailModal from "../../src/TaskDetailModal";
 import CreateTaskModal from "../../src/CreateTaskModal";
 
 const BRANDS = ["All", "VW", "VaLyn", "The Ride", "smarTEK", "Po1"];
@@ -13,6 +12,8 @@ const PRIORITIES = ["All", "Critical", "Urgent", "Important", "Normal", "Low"];
 const FLAGS = ["All", "Blocked", "On Hold", "None"];
 const PHASES = ["All", "Phase 1 – Foundation", "Phase 2 – Establish & Stabilize", "Phase 3 – Expand & Leverage", "Phase 4 – Optimize & Scale"];
 const QUARTERS = ["All", "2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4", "2027-Q1", "2027-Q2"];
+const PROGRESS_OPTIONS = ["0%", "10%", "25%", "50%", "75%", "90%", "100%"];
+const FLAG_OPTIONS = ["None", "Blocked", "On Hold"];
 
 const BRAND_COLORS: Record<string, string> = {
   VW: "bg-orange-900 text-orange-200",
@@ -56,6 +57,184 @@ interface Filters {
 }
 
 const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
+
+// Inline edit panel — drops down softly inside card or table row
+function InlineEditPanel({
+  task,
+  onSave,
+  onDelete,
+  onClose,
+}: {
+  task: any;
+  onSave: (id: number, updates: Record<string, any>) => Promise<void>;
+  onDelete: (id: number, brand: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [progress, setProgress] = useState(task.field_6 || "0%");
+  const [flag, setFlag] = useState(task.Flag || "None");
+  const [holdReason, setHoldReason] = useState(task.HoldReason || "");
+  const [resumeDate, setResumeDate] = useState(
+    task.ResumeDate ? task.ResumeDate.substring(0, 10) : ""
+  );
+  const [notes, setNotes] = useState(task.field_11 || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(task.ID, {
+        field_6: progress,
+        Flag: flag,
+        HoldReason: flag === "On Hold" ? holdReason : "",
+        ResumeDate: flag === "On Hold" && resumeDate ? resumeDate : null,
+        field_11: notes,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      alert("Save failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelTask = async () => {
+    if (!cancelling) { setCancelling(true); return; }
+    setSaving(true);
+    try {
+      await onSave(task.ID, { Status: "Cancelled" });
+      onClose();
+    } catch {
+      alert("Cancel failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    setDeleting(true);
+    try {
+      await onDelete(task.ID, task.PlanName ?? "");
+      onClose();
+    } catch {
+      alert("Delete failed. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-gray-700 mt-3 pt-3">
+      {/* Read-only summary */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-3 text-xs">
+        <div><span className="text-gray-500">Status:</span> <span className="text-gray-300">{task.Status || "—"}</span></div>
+        <div><span className="text-gray-500">Priority:</span> <span className="text-gray-300">{task.field_8 || "—"}</span></div>
+        <div><span className="text-gray-500">Phase:</span> <span className="text-gray-300">{task.field_4 || "—"}</span></div>
+        <div><span className="text-gray-500">Quarter:</span> <span className="text-gray-300">{task.field_5 || "—"}</span></div>
+        <div><span className="text-gray-500">Bucket:</span> <span className="text-gray-300">{task.field_3 || "—"}</span></div>
+        <div><span className="text-gray-500">Owner:</span> <span className="text-gray-300">{task.Owner?.Title || "—"}</span></div>
+        <div><span className="text-gray-500">Start:</span> <span className="text-gray-300">{task.StartDate_x0028_DT_x0029_ ? new Date(task.StartDate_x0028_DT_x0029_).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</span></div>
+        <div><span className="text-gray-500">Due:</span> <span className="text-gray-300">{task.DueDate_DT ? new Date(task.DueDate_DT).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</span></div>
+      </div>
+
+      <hr className="border-gray-800 mb-3" />
+
+      {/* Editable fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Progress</label>
+          <select
+            value={progress}
+            onChange={(e) => setProgress(e.target.value)}
+            className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
+          >
+            {PROGRESS_OPTIONS.map((p) => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Flag</label>
+          <select
+            value={flag}
+            onChange={(e) => setFlag(e.target.value)}
+            className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
+          >
+            {FLAG_OPTIONS.map((f) => <option key={f}>{f}</option>)}
+          </select>
+        </div>
+        {flag === "On Hold" && (
+          <>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Hold Reason</label>
+              <input
+                type="text"
+                value={holdReason}
+                onChange={(e) => setHoldReason(e.target.value)}
+                placeholder="Why is this on hold?"
+                className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Resume Date</label>
+              <input
+                type="date"
+                value={resumeDate}
+                onChange={(e) => setResumeDate(e.target.value)}
+                className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </>
+        )}
+        <div className="sm:col-span-2">
+          <label className="text-xs text-gray-500 uppercase tracking-wide mb-1 block">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Add notes..."
+            className="w-full bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
+          />
+        </div>
+      </div>
+
+      {/* Action buttons — evenly distributed */}
+      <div className="grid grid-cols-4 gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || deleting}
+          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-medium rounded px-2 py-2 transition-colors"
+        >
+          {saving ? "Saving…" : saved ? "✅ Saved" : "Save"}
+        </button>
+        <button
+          onClick={onClose}
+          disabled={saving || deleting}
+          className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 text-xs font-medium rounded px-2 py-2 transition-colors"
+        >
+          Close
+        </button>
+        <button
+          onClick={handleCancelTask}
+          disabled={saving || deleting}
+          className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-xs font-medium rounded px-2 py-2 transition-colors"
+        >
+          {cancelling ? "Confirm?" : "Cancel Task"}
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={saving || deleting}
+          className="bg-gray-800 hover:bg-red-900 disabled:opacity-50 text-gray-400 hover:text-red-300 text-xs font-medium rounded px-2 py-2 border border-gray-700 transition-colors"
+        >
+          {confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function HoverFilter({
   value, options, onChange, active,
@@ -149,65 +328,79 @@ function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField:
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-function TaskCard({ task, onClick, formatDate, truncate }: {
+function TaskCard({ task, expanded, onToggle, onSave, onDelete, formatDate, truncate }: {
   task: any;
-  onClick: () => void;
+  expanded: boolean;
+  onToggle: () => void;
+  onSave: (id: number, updates: Record<string, any>) => Promise<void>;
+  onDelete: (id: number, brand: string) => Promise<void>;
   formatDate: (v: string | null) => string;
   truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
   return (
-    <div
-      onClick={onClick}
-      className="bg-gray-900 border border-gray-800 rounded-lg p-4 cursor-pointer active:bg-gray-800 transition-colors duration-150 hover:border-gray-600"
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <span className="text-white font-medium text-sm leading-snug flex-1">{task.Title}</span>
-        <span className="text-gray-600 text-xs font-mono shrink-0">#{task.ID}</span>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-2">
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
-          {task.PlanName || "—"}
-        </span>
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
-          {task.Status || "—"}
-        </span>
-        {task.Flag && task.Flag !== "None" && (
-          <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
-            {task.Flag}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-        <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
-        <span>
-          {task.StartDate_x0028_DT_x0029_ ? `${formatDate(task.StartDate_x0028_DT_x0029_)} → ` : ""}
-          {formatDate(task.DueDate_DT)}
-        </span>
-      </div>
-      {task.field_4 && (
-        <div className="text-xs text-gray-600 mt-1">{task.field_4}</div>
-      )}
-      {task.field_6 && task.field_6 !== "0%" && (
-        <div className="text-xs text-blue-400 mt-1">{task.field_6} complete</div>
-      )}
-      {task.HoldReason && (
-        <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>
-      )}
-      {task.BlockReason && (
-        <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>
-      )}
-      {task.field_11 && (
-        <div className="text-xs text-gray-500 italic mt-1 truncate">
-          📝 {truncate(task.field_11, 60)}
+    <div className={`border rounded-lg transition-colors duration-150 ${expanded ? "border-blue-700 bg-gray-900" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
+      {/* Card summary — always visible, click to expand */}
+      <div onClick={onToggle} className="p-4 cursor-pointer">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span className="text-white font-medium text-sm leading-snug flex-1">{task.Title}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-gray-600 text-xs font-mono">#{task.ID}</span>
+            <span className={`text-gray-500 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>▼</span>
+          </div>
         </div>
-      )}
+        <div className="flex flex-wrap gap-2 mb-2">
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
+            {task.PlanName || "—"}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
+            {task.Status || "—"}
+          </span>
+          {task.Flag && task.Flag !== "None" && (
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
+              {task.Flag}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+          <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
+          <span>
+            {task.StartDate_x0028_DT_x0029_ ? `${formatDate(task.StartDate_x0028_DT_x0029_)} → ` : ""}
+            {formatDate(task.DueDate_DT)}
+          </span>
+        </div>
+        {task.field_4 && <div className="text-xs text-gray-600 mt-1">{task.field_4}</div>}
+        {task.field_6 && task.field_6 !== "0%" && <div className="text-xs text-blue-400 mt-1">{task.field_6} complete</div>}
+        {task.HoldReason && <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>}
+        {task.BlockReason && <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>}
+        {task.field_11 && <div className="text-xs text-gray-500 italic mt-1 truncate">📝 {truncate(task.field_11, 60)}</div>}
+      </div>
+
+      {/* Inline edit panel — soft drop-down reveal */}
+      <div
+        style={{
+          overflow: "hidden",
+          maxHeight: expanded ? "600px" : "0px",
+          opacity: expanded ? 1 : 0,
+          transition: "max-height 350ms ease, opacity 250ms ease",
+        }}
+      >
+        <div className="px-4 pb-4">
+          <InlineEditPanel
+            task={task}
+            onSave={onSave}
+            onDelete={onDelete}
+            onClose={onToggle}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
+function BucketGroupedCards({ tasks, onSave, onDelete, formatDate, truncate }: {
   tasks: any[];
-  onSelect: (task: any) => void;
+  onSave: (id: number, updates: Record<string, any>) => Promise<void>;
+  onDelete: (id: number, brand: string) => Promise<void>;
   formatDate: (v: string | null) => string;
   truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
@@ -226,16 +419,13 @@ function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
   }, [tasks]);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
-    // Restore persisted state — default all collapsed on first load
     try {
       const stored = localStorage.getItem(BUCKET_STORAGE_KEY);
       if (stored) return new Set(JSON.parse(stored));
     } catch {}
-    // First load: collapse all buckets
     return new Set(["__ALL__"]);
   });
 
-  // On first load, if we have the sentinel __ALL__, replace with actual bucket names
   useEffect(() => {
     if (collapsed.has("__ALL__") && grouped.length > 0) {
       const allBuckets = new Set(grouped.map(([bucket]) => bucket));
@@ -258,6 +448,13 @@ function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
     });
   };
 
+  // Only one card expanded at a time
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const toggleCard = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
   if (tasks.length === 0) {
     return <p className="text-center text-gray-500 py-8">No tasks match the selected filters.</p>;
   }
@@ -272,37 +469,33 @@ function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
               onClick={() => toggleBucket(bucket)}
               className="flex items-center gap-2 mb-3 w-full text-left group"
             >
-              <span
-                style={{
-                  display: "inline-block",
-                  transition: "transform 200ms ease",
-                  transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                  fontSize: "10px",
-                  color: "#6b7280",
-                }}
-              >
-                ▼
-              </span>
+              <span style={{
+                display: "inline-block",
+                transition: "transform 200ms ease",
+                transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                fontSize: "10px", color: "#6b7280",
+              }}>▼</span>
               <span className="text-gray-300 text-sm font-semibold tracking-wide group-hover:text-white transition-colors">
                 {bucket}
               </span>
               <span className="text-gray-600 text-xs">({bucketTasks.length})</span>
               <div className="flex-1 h-px bg-gray-800" />
             </button>
-            <div
-              style={{
-                overflow: "hidden",
-                maxHeight: isCollapsed ? "0px" : "10000px",
-                opacity: isCollapsed ? 0 : 1,
-                transition: "max-height 300ms ease, opacity 200ms ease",
-              }}
-            >
+            <div style={{
+              overflow: "hidden",
+              maxHeight: isCollapsed ? "0px" : "10000px",
+              opacity: isCollapsed ? 0 : 1,
+              transition: "max-height 300ms ease, opacity 200ms ease",
+            }}>
               <div className="flex flex-col gap-3 pb-1">
                 {bucketTasks.map((task) => (
                   <TaskCard
                     key={task.ID}
                     task={task}
-                    onClick={() => onSelect(task)}
+                    expanded={expandedId === task.ID}
+                    onToggle={() => toggleCard(task.ID)}
+                    onSave={onSave}
+                    onDelete={onDelete}
                     formatDate={formatDate}
                     truncate={truncate}
                   />
@@ -329,7 +522,7 @@ export default function Dashboard() {
   const [sortField, setSortField] = useState<SortField>("ID");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
@@ -429,10 +622,7 @@ export default function Dashboard() {
       });
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokenResponse.accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
         body: JSON.stringify(updates),
       });
       if (!res.ok) {
@@ -455,10 +645,7 @@ export default function Dashboard() {
       });
       const res = await fetch(`/api/tasks/${id}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokenResponse.accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
         body: JSON.stringify({ brand }),
       });
       if (!res.ok) {
@@ -466,7 +653,7 @@ export default function Dashboard() {
         console.error("DELETE failed:", d);
         throw new Error("Delete failed");
       }
-      setSelectedTask(null);
+      setExpandedRowId(null);
       await refetch();
     } catch (err: any) {
       console.error("handleDelete error:", err);
@@ -482,10 +669,7 @@ export default function Dashboard() {
       });
       const res = await fetch("/api/tasks", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokenResponse.accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -512,9 +696,7 @@ export default function Dashboard() {
     </th>
   );
 
-  const ColHeader = ({
-    label, field, filterKey, filterOptions, className = "",
-  }: {
+  const ColHeader = ({ label, field, filterKey, filterOptions, className = "" }: {
     label: string; field: SortField; filterKey: keyof Filters; filterOptions: string[]; className?: string;
   }) => (
     <th className={`px-3 py-3 text-left align-middle ${className}`} style={{ overflow: "visible" }}>
@@ -563,17 +745,13 @@ export default function Dashboard() {
           <div className="hidden md:flex items-center bg-gray-800 rounded-lg p-1 gap-1">
             <button
               onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}
             >
               ☰ List
             </button>
             <button
               onClick={() => setViewMode("card")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}
             >
               ⊞ Cards
             </button>
@@ -592,11 +770,12 @@ export default function Dashboard() {
 
       {!loading && !error && (
         <>
-          {/* Mobile — always card view, bucket-grouped */}
+          {/* Mobile — always card view */}
           <div className="md:hidden">
             <BucketGroupedCards
               tasks={filtered}
-              onSelect={setSelectedTask}
+              onSave={handleSave}
+              onDelete={handleDelete}
               formatDate={formatDate}
               truncate={truncate}
             />
@@ -607,15 +786,13 @@ export default function Dashboard() {
             {viewMode === "card" ? (
               <BucketGroupedCards
                 tasks={filtered}
-                onSelect={setSelectedTask}
+                onSave={handleSave}
+                onDelete={handleDelete}
                 formatDate={formatDate}
                 truncate={truncate}
               />
             ) : (
-              <div
-                className="rounded-lg border border-gray-800"
-                style={{ overflowX: "auto", overflowY: "visible" }}
-              >
+              <div className="rounded-lg border border-gray-800" style={{ overflowX: "auto", overflowY: "visible" }}>
                 <table className="w-full text-sm" style={{ overflow: "visible" }}>
                   <thead className="bg-gray-900 border-b border-gray-800" style={{ overflow: "visible" }}>
                     <tr style={{ overflow: "visible" }}>
@@ -647,55 +824,74 @@ export default function Dashboard() {
                       </tr>
                     ) : (
                       filtered.map((task) => (
-                        <tr
-                          key={task.ID}
-                          onClick={() => setSelectedTask(task)}
-                          className="hover:bg-gray-900 transition-colors duration-100 cursor-pointer"
-                        >
-                          <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
-                          <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">{task.Title}</td>
-                          <td className="px-3 py-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
-                              {task.PlanName || "—"}
-                            </span>
-                          </td>
-                          <td className={`px-3 py-3 text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>
-                            {task.field_8 || "—"}
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
-                              {task.Status || "—"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            {task.Flag && task.Flag !== "None" ? (
-                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
-                                {task.Flag}
+                        <>
+                          <tr
+                            key={task.ID}
+                            onClick={() => setExpandedRowId(expandedRowId === task.ID ? null : task.ID)}
+                            className={`transition-colors duration-100 cursor-pointer ${expandedRowId === task.ID ? "bg-gray-800" : "hover:bg-gray-900"}`}
+                          >
+                            <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
+                            <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">
+                              <span className="flex items-center gap-2">
+                                {task.Title}
+                                <span className={`text-gray-600 text-xs transition-transform duration-200 ${expandedRowId === task.ID ? "rotate-180" : ""}`}>▼</span>
                               </span>
-                            ) : <span className="text-gray-700">—</span>}
-                          </td>
-                          <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
-                          <td className="px-3 py-3 text-gray-400 text-xs max-w-[160px] truncate">{task.field_4 || "—"}</td>
-                          <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
-                          <td className="px-3 py-3 text-gray-400 text-xs">{task.field_3 || "—"}</td>
-                          <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.StartDate_x0028_DT_x0029_)}</td>
-                          <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.DueDate_DT)}</td>
-                          <td className="px-3 py-3 text-gray-300 text-xs">{task.Owner?.Title || "—"}</td>
-                          <td className="px-3 py-3 text-gray-300 text-xs">{task.Assign_x0020_To?.Title || "—"}</td>
-                          <td className="px-3 py-3">
-                            {task.HoldReason
-                              ? <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span>
-                              : <span className="text-transparent text-xs select-none">—</span>}
-                          </td>
-                          <td className="px-3 py-3">
-                            {task.BlockReason
-                              ? <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span>
-                              : <span className="text-transparent text-xs select-none">—</span>}
-                          </td>
-                          <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">
-                            {task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
+                                {task.PlanName || "—"}
+                              </span>
+                            </td>
+                            <td className={`px-3 py-3 text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>
+                              {task.field_8 || "—"}
+                            </td>
+                            <td className="px-3 py-3">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
+                                {task.Status || "—"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3">
+                              {task.Flag && task.Flag !== "None" ? (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
+                                  {task.Flag}
+                                </span>
+                              ) : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
+                            <td className="px-3 py-3 text-gray-400 text-xs max-w-[160px] truncate">{task.field_4 || "—"}</td>
+                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
+                            <td className="px-3 py-3 text-gray-400 text-xs">{task.field_3 || "—"}</td>
+                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.StartDate_x0028_DT_x0029_)}</td>
+                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.DueDate_DT)}</td>
+                            <td className="px-3 py-3 text-gray-300 text-xs">{task.Owner?.Title || "—"}</td>
+                            <td className="px-3 py-3 text-gray-300 text-xs">{task.Assign_x0020_To?.Title || "—"}</td>
+                            <td className="px-3 py-3">
+                              {task.HoldReason
+                                ? <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span>
+                                : <span className="text-transparent text-xs select-none">—</span>}
+                            </td>
+                            <td className="px-3 py-3">
+                              {task.BlockReason
+                                ? <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span>
+                                : <span className="text-transparent text-xs select-none">—</span>}
+                            </td>
+                            <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">
+                              {task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}
+                            </td>
+                          </tr>
+                          {expandedRowId === task.ID && (
+                            <tr key={`${task.ID}-expanded`}>
+                              <td colSpan={17} className="px-6 py-4 bg-gray-800 border-b border-gray-700">
+                                <InlineEditPanel
+                                  task={task}
+                                  onSave={handleSave}
+                                  onDelete={handleDelete}
+                                  onClose={() => setExpandedRowId(null)}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       ))
                     )}
                   </tbody>
@@ -706,14 +902,6 @@ export default function Dashboard() {
         </>
       )}
 
-      {selectedTask && (
-        <TaskDetailModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onSave={handleSave}
-          onDelete={handleDelete}
-        />
-      )}
       {showCreateModal && (
         <CreateTaskModal
           onClose={() => setShowCreateModal(false)}
