@@ -54,6 +54,7 @@ interface Filters {
   phase: string; quarter: string; owner: string; assignTo: string;
 }
 
+// Cascading staggered hover-reveal flyout
 function HoverFilter({
   value, options, onChange, active,
 }: {
@@ -68,7 +69,7 @@ function HoverFilter({
   }, []);
 
   const hide = useCallback(() => {
-    hideTimer.current = setTimeout(() => setVisible(false), 200);
+    hideTimer.current = setTimeout(() => setVisible(false), 250);
   }, []);
 
   const select = (v: string) => {
@@ -85,14 +86,13 @@ function HoverFilter({
     zIndex: 9999,
     opacity: visible ? 1 : 0,
     pointerEvents: visible ? "auto" : "none",
-    transform: visible ? "translateY(0)" : "translateY(-4px)",
-    transition: "opacity 180ms ease, transform 180ms ease",
+    transition: "opacity 200ms ease",
     backgroundColor: "#1f2937",
     border: "1px solid #374151",
     borderRadius: "8px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
     minWidth: "180px",
-    maxHeight: "192px",
+    maxHeight: "220px",
     overflowY: "auto",
     padding: "4px 0",
   };
@@ -110,7 +110,7 @@ function HoverFilter({
         ▾
       </span>
       <div style={flyoutStyle} onMouseEnter={show} onMouseLeave={hide}>
-        {options.map((o) => (
+        {options.map((o, i) => (
           <button
             key={o}
             onMouseDown={(e) => { e.preventDefault(); select(o); }}
@@ -125,7 +125,12 @@ function HoverFilter({
               fontWeight: value === o ? 600 : 400,
               border: "none",
               cursor: "pointer",
-              transition: "background 100ms",
+              // Staggered cascade: each item delays 60ms more than the previous
+              opacity: visible ? 1 : 0,
+              transform: visible ? "translateY(0)" : "translateY(-6px)",
+              transition: visible
+                ? `opacity 180ms ease ${i * 60}ms, transform 180ms ease ${i * 60}ms`
+                : "opacity 100ms ease, transform 100ms ease",
             }}
             onMouseEnter={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "#374151"; }}
             onMouseLeave={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "transparent"; }}
@@ -141,6 +146,118 @@ function HoverFilter({
 function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
   if (sortField !== field) return <span className="text-gray-700 ml-1 text-xs">↕</span>;
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
+// Card component used by both mobile and tablet views
+function TaskCard({ task, onClick, formatDate, truncate }: {
+  task: any;
+  onClick: () => void;
+  formatDate: (v: string | null) => string;
+  truncate: (v: string | null | undefined, len?: number) => string | null;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-gray-900 border border-gray-800 rounded-lg p-4 cursor-pointer active:bg-gray-800 transition-colors duration-150 hover:border-gray-600"
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span className="text-white font-medium text-sm leading-snug flex-1">{task.Title}</span>
+        <span className="text-gray-600 text-xs font-mono shrink-0">#{task.ID}</span>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
+          {task.PlanName || "—"}
+        </span>
+        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
+          {task.Status || "—"}
+        </span>
+        {task.Flag && task.Flag !== "None" && (
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
+            {task.Flag}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+        <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
+        <span>
+          {task.StartDate_x0028_DT_x0029_ ? `${formatDate(task.StartDate_x0028_DT_x0029_)} → ` : ""}
+          {formatDate(task.DueDate_DT)}
+        </span>
+      </div>
+      {task.field_4 && (
+        <div className="text-xs text-gray-600 mt-1">{task.field_4}</div>
+      )}
+      {task.field_6 && task.field_6 !== "0%" && (
+        <div className="text-xs text-blue-400 mt-1">{task.field_6} complete</div>
+      )}
+      {task.HoldReason && (
+        <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>
+      )}
+      {task.BlockReason && (
+        <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>
+      )}
+      {task.field_11 && (
+        <div className="text-xs text-gray-500 italic mt-1 truncate">
+          📝 {truncate(task.field_11, 60)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Groups tasks by Bucket Name, tasks with no bucket go under "No Bucket"
+function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
+  tasks: any[];
+  onSelect: (task: any) => void;
+  formatDate: (v: string | null) => string;
+  truncate: (v: string | null | undefined, len?: number) => string | null;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, any[]>();
+    tasks.forEach((t) => {
+      const bucket = t.field_3 || "No Bucket";
+      if (!map.has(bucket)) map.set(bucket, []);
+      map.get(bucket)!.push(t);
+    });
+    // Sort buckets — "No Bucket" always last
+    const sorted = Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === "No Bucket") return 1;
+      if (b === "No Bucket") return -1;
+      return a.localeCompare(b);
+    });
+    return sorted;
+  }, [tasks]);
+
+  if (tasks.length === 0) {
+    return <p className="text-center text-gray-500 py-8">No tasks match the selected filters.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {grouped.map(([bucket, bucketTasks]) => (
+        <div key={bucket}>
+          {/* Swim lane header */}
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-gray-300 text-sm font-semibold tracking-wide">{bucket}</span>
+            <span className="text-gray-600 text-xs">({bucketTasks.length})</span>
+            <div className="flex-1 h-px bg-gray-800" />
+          </div>
+          {/* Cards under this bucket */}
+          <div className="flex flex-col gap-3">
+            {bucketTasks.map((task) => (
+              <TaskCard
+                key={task.ID}
+                task={task}
+                onClick={() => onSelect(task)}
+                formatDate={formatDate}
+                truncate={truncate}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -337,6 +454,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-4 md:p-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">VWH Task Command</h1>
@@ -369,9 +487,29 @@ export default function Dashboard() {
 
       {!loading && !error && (
         <>
-          {/* Desktop Table */}
+          {/* Mobile — up to 767px — bucket-grouped cards */}
+          <div className="md:hidden">
+            <BucketGroupedCards
+              tasks={filtered}
+              onSelect={setSelectedTask}
+              formatDate={formatDate}
+              truncate={truncate}
+            />
+          </div>
+
+          {/* Tablet — 768px to 1279px — bucket-grouped cards, wider layout */}
+          <div className="hidden md:block xl:hidden">
+            <BucketGroupedCards
+              tasks={filtered}
+              onSelect={setSelectedTask}
+              formatDate={formatDate}
+              truncate={truncate}
+            />
+          </div>
+
+          {/* Desktop — 1280px and up — full table */}
           <div
-            className="hidden md:block rounded-lg border border-gray-800"
+            className="hidden xl:block rounded-lg border border-gray-800"
             style={{ overflowX: "auto", overflowY: "visible" }}
           >
             <table className="w-full text-sm" style={{ overflow: "visible" }}>
@@ -458,54 +596,6 @@ export default function Dashboard() {
                 )}
               </tbody>
             </table>
-          </div>
-
-          {/* Mobile Card Stack */}
-          <div className="md:hidden flex flex-col gap-3">
-            {filtered.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No tasks match the selected filters.</p>
-            ) : (
-              filtered.map((task) => (
-                <div
-                  key={task.ID}
-                  onClick={() => setSelectedTask(task)}
-                  className="bg-gray-900 border border-gray-800 rounded-lg p-4 cursor-pointer active:bg-gray-800 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-white font-medium text-sm leading-snug flex-1">{task.Title}</span>
-                    <span className="text-gray-600 text-xs font-mono shrink-0">#{task.ID}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
-                      {task.PlanName || "—"}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>
-                      {task.Status || "—"}
-                    </span>
-                    {task.Flag && task.Flag !== "None" && (
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>
-                        {task.Flag}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span className={PRIORITY_COLORS[task.field_8] || "text-gray-500"}>{task.field_8 || "No priority"}</span>
-                    <span>{formatDate(task.DueDate_DT)}</span>
-                  </div>
-                  {(task.field_3 || task.field_4) && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      {[task.field_3, task.field_4].filter(Boolean).join(" · ")}
-                    </div>
-                  )}
-                  {task.HoldReason && (
-                    <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>
-                  )}
-                  {task.BlockReason && (
-                    <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>
-                  )}
-                </div>
-              ))
-            )}
           </div>
         </>
       )}
