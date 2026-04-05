@@ -55,6 +55,8 @@ interface Filters {
   phase: string; quarter: string; owner: string; assignTo: string;
 }
 
+const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
+
 function HoverFilter({
   value, options, onChange, active,
 }: {
@@ -223,13 +225,35 @@ function BucketGroupedCards({ tasks, onSelect, formatDate, truncate }: {
     });
   }, [tasks]);
 
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    // Restore persisted state — default all collapsed on first load
+    try {
+      const stored = localStorage.getItem(BUCKET_STORAGE_KEY);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    // First load: collapse all buckets
+    return new Set(["__ALL__"]);
+  });
+
+  // On first load, if we have the sentinel __ALL__, replace with actual bucket names
+  useEffect(() => {
+    if (collapsed.has("__ALL__") && grouped.length > 0) {
+      const allBuckets = new Set(grouped.map(([bucket]) => bucket));
+      setCollapsed(allBuckets);
+      try {
+        localStorage.setItem(BUCKET_STORAGE_KEY, JSON.stringify(Array.from(allBuckets)));
+      } catch {}
+    }
+  }, [grouped]);
 
   const toggleBucket = (bucket: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(bucket)) next.delete(bucket);
       else next.add(bucket);
+      try {
+        localStorage.setItem(BUCKET_STORAGE_KEY, JSON.stringify(Array.from(next)));
+      } catch {}
       return next;
     });
   };
@@ -397,58 +421,84 @@ export default function Dashboard() {
     return val.length > len ? val.slice(0, len) + "…" : val;
   };
 
-  // Fixed: do NOT close modal after save — modal manages its own close
   const handleSave = async (id: number, updates: Record<string, any>) => {
-    const tokenResponse = await instance.acquireTokenSilent({
-      scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-    });
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) {
-      const d = await res.json();
-      console.error("PATCH failed:", d);
-      throw new Error("Save failed");
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({
+        scopes: ["https://valwhitneyllc.sharepoint.com/.default"],
+        account: accounts[0],
+      });
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenResponse.accessToken}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        console.error("PATCH failed:", d);
+        throw new Error("Save failed");
+      }
+      await refetch();
+    } catch (err: any) {
+      console.error("handleSave error:", err);
+      throw err;
     }
-    await refetch();
   };
 
   const handleDelete = async (id: number, brand: string) => {
-    const tokenResponse = await instance.acquireTokenSilent({
-      scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-    });
-    const res = await fetch(`/api/tasks/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
-      body: JSON.stringify({ brand }),
-    });
-    if (!res.ok) {
-      const d = await res.json();
-      console.error("DELETE failed:", d);
-      throw new Error("Delete failed");
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({
+        scopes: ["https://valwhitneyllc.sharepoint.com/.default"],
+        account: accounts[0],
+      });
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenResponse.accessToken}`,
+        },
+        body: JSON.stringify({ brand }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        console.error("DELETE failed:", d);
+        throw new Error("Delete failed");
+      }
+      setSelectedTask(null);
+      await refetch();
+    } catch (err: any) {
+      console.error("handleDelete error:", err);
+      throw err;
     }
-    setSelectedTask(null);
-    await refetch();
   };
 
   const handleCreate = async (payload: Record<string, any>) => {
-    const tokenResponse = await instance.acquireTokenSilent({
-      scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-    });
-    const res = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const d = await res.json();
-      console.error("POST failed:", d);
-      throw new Error("Create failed");
+    try {
+      const tokenResponse = await instance.acquireTokenSilent({
+        scopes: ["https://valwhitneyllc.sharepoint.com/.default"],
+        account: accounts[0],
+      });
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tokenResponse.accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        console.error("POST failed:", d);
+        throw new Error("Create failed");
+      }
+      setShowCreateModal(false);
+      await refetch();
+    } catch (err: any) {
+      console.error("handleCreate error:", err);
+      throw err;
     }
-    setShowCreateModal(false);
-    await refetch();
   };
 
   const SortHeader = ({ label, field, className = "" }: { label: string; field: SortField; className?: string }) => (
@@ -509,8 +559,6 @@ export default function Dashboard() {
             )}
           </p>
         </div>
-
-        {/* View toggle + New Task */}
         <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center bg-gray-800 rounded-lg p-1 gap-1">
             <button
