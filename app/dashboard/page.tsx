@@ -718,8 +718,10 @@ export default function Dashboard() {
                           </tr>
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
-                              <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700">
+                              <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700" style={{ width: "100%" }}>
+                                <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
                                 <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
+                                </div>
                               </td>
                             </tr>
                           )}
