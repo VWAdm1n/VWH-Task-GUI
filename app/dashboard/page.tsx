@@ -2,7 +2,7 @@
 
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useSharePointTasks } from "../../src/useSharePointTasks";
 import TaskDetailModal from "../../src/TaskDetailModal";
 import CreateTaskModal from "../../src/CreateTaskModal";
@@ -11,8 +11,8 @@ const BRANDS = ["All", "VW", "VaLyn", "The Ride", "smarTEK", "Po1"];
 const STATUSES = ["All", "Queue", "In Progress", "Completed", "Cancelled"];
 const PRIORITIES = ["All", "Critical", "Urgent", "Important", "Normal", "Low"];
 const FLAGS = ["All", "Blocked", "On Hold", "None"];
-const PHASES = ["All", "Phase 1", "Phase 2", "Phase 3", "Phase 4", "Phase 5"];
-const QUARTERS = ["All", "2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4", "2027-Q1"];
+const PHASES = ["All", "Phase 1 – Foundation", "Phase 2 – Establish & Stabilize", "Phase 3 – Expand & Leverage", "Phase 4 – Optimize & Scale"];
+const QUARTERS = ["All", "2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4", "2027-Q1", "2027-Q2"];
 
 const BRAND_COLORS: Record<string, string> = {
   VW: "bg-orange-900 text-orange-200",
@@ -43,58 +43,73 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 type SortField =
-  | "ID"
-  | "Title"
-  | "PlanName"
-  | "field_8"
-  | "Status"
-  | "Flag"
-  | "field_6"
-  | "field_4"
-  | "field_5"
-  | "field_3"
-  | "StartDate_x0028_DT_x0029_"
-  | "DueDate_DT"
-  | "Owner"
-  | "Assign_x0020_To";
+  | "ID" | "Title" | "PlanName" | "field_8" | "Status" | "Flag"
+  | "field_6" | "field_4" | "field_5" | "field_3"
+  | "StartDate_x0028_DT_x0029_" | "DueDate_DT" | "Owner" | "Assign_x0020_To";
 
 type SortDir = "asc" | "desc";
 
 interface Filters {
-  brand: string;
-  status: string;
-  priority: string;
-  flag: string;
-  phase: string;
-  quarter: string;
-  owner: string;
-  assignTo: string;
+  brand: string; status: string; priority: string; flag: string;
+  phase: string; quarter: string; owner: string; assignTo: string;
 }
 
-function HeaderFilter({
-  value,
-  options,
-  onChange,
+// Flyout filter — appears on click, dismisses on selection or click-away
+function FlyoutFilter({
+  value, options, onChange, active,
 }: {
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
+  value: string; options: string[]; onChange: (v: string) => void; active: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <select
-      value={value}
-      onChange={(e) => { e.stopPropagation(); onChange(e.target.value); }}
-      onClick={(e) => e.stopPropagation()}
-      className="mt-1 w-full bg-gray-800 text-gray-300 text-xs rounded px-1 py-0.5 border border-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-    >
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className={`ml-1 text-xs px-1 rounded transition-colors ${
+          active ? "text-blue-400 bg-blue-900/40" : "text-gray-600 hover:text-gray-400"
+        }`}
+        title="Filter"
+      >
+        ▾
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded shadow-xl min-w-[140px] py-1">
+          {options.map((o) => (
+            <button
+              key={o}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(o);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                value === o
+                  ? "text-blue-300 bg-blue-900/40"
+                  : "text-gray-300 hover:bg-gray-700"
+              }`}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
 function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
-  if (sortField !== field) return <span className="text-gray-700 ml-1">↕</span>;
-  return <span className="text-blue-400 ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  if (sortField !== field) return <span className="text-gray-700 ml-1 text-xs">↕</span>;
+  return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
 export default function Dashboard() {
@@ -135,6 +150,8 @@ export default function Dashboard() {
     tasks.forEach((t) => { if (t.Assign_x0020_To?.Title) names.add(t.Assign_x0020_To.Title); });
     return ["All", ...Array.from(names).sort()];
   }, [tasks]);
+
+  const activeFilterCount = Object.values(filters).filter((v) => v !== "All").length;
 
   const filtered = useMemo(() => {
     let result = tasks.filter((t) => {
@@ -242,30 +259,46 @@ export default function Dashboard() {
     } catch (err: any) { alert("Create failed: " + err.message); }
   };
 
-  const ColHeader = ({ label, field, filterKey, filterOptions }: {
-    label: string; field: SortField; filterKey?: keyof Filters; filterOptions?: string[];
-  }) => (
-    <th className="px-3 py-2 text-left align-top min-w-[90px]">
+  // Sortable column header — sort only, no filter
+  const SortHeader = ({ label, field, className = "" }: { label: string; field: SortField; className?: string }) => (
+    <th className={`px-3 py-3 text-left align-middle ${className}`}>
       <div
-        className="flex items-center gap-1 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold"
+        className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold whitespace-nowrap"
         onClick={() => handleSort(field)}
       >
         {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
       </div>
-      {filterKey && filterOptions && (
-        <HeaderFilter value={filters[filterKey]} options={filterOptions} onChange={(v) => setFilter(filterKey, v)} />
-      )}
     </th>
   );
 
-  const SortHeader = ({ label, field }: { label: string; field: SortField }) => (
-    <th className="px-3 py-2 text-left align-top">
-      <div
-        className="flex items-center gap-1 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold whitespace-nowrap"
-        onClick={() => handleSort(field)}
-      >
-        {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
+  // Sortable + filterable column header — flyout on click
+  const ColHeader = ({
+    label, field, filterKey, filterOptions, className = "",
+  }: {
+    label: string; field: SortField; filterKey: keyof Filters; filterOptions: string[]; className?: string;
+  }) => (
+    <th className={`px-3 py-3 text-left align-middle ${className}`}>
+      <div className="flex items-center gap-0.5 whitespace-nowrap">
+        <span
+          className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold"
+          onClick={() => handleSort(field)}
+        >
+          {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
+        </span>
+        <FlyoutFilter
+          value={filters[filterKey]}
+          options={filterOptions}
+          onChange={(v) => setFilter(filterKey, v)}
+          active={filters[filterKey] !== "All"}
+        />
       </div>
+    </th>
+  );
+
+  // Static header — no sort, no filter (Reason fields, Notes)
+  const StaticHeader = ({ label, className = "" }: { label: string; className?: string }) => (
+    <th className={`px-3 py-3 text-left align-middle ${className}`}>
+      <span className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">{label}</span>
     </th>
   );
 
@@ -276,7 +309,19 @@ export default function Dashboard() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white">VWH Task Command</h1>
           <p className="text-gray-400 text-sm mt-1">
-            {loading ? "Loading..." : `${filtered.length} of ${tasks.length} tasks`}
+            {loading ? "Loading..." : (
+              <>
+                {filtered.length} of {tasks.length} tasks
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={() => setFilters({ brand: "All", status: "All", priority: "All", flag: "All", phase: "All", quarter: "All", owner: "All", assignTo: "All" })}
+                    className="ml-3 text-xs text-blue-400 hover:text-blue-300 underline"
+                  >
+                    Clear {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+                  </button>
+                )}
+              </>
+            )}
           </p>
         </div>
         <button
@@ -297,14 +342,7 @@ export default function Dashboard() {
             <table className="w-full text-sm">
               <thead className="bg-gray-900 border-b border-gray-800">
                 <tr>
-                  <th className="px-3 py-2 text-left align-top w-16">
-                    <div
-                      className="flex items-center gap-1 cursor-pointer select-none text-gray-400 hover:text-white transition-colors text-xs uppercase font-semibold"
-                      onClick={() => handleSort("ID")}
-                    >
-                      Task ID<SortArrow field="ID" sortField={sortField} sortDir={sortDir} />
-                    </div>
-                  </th>
+                  <SortHeader label="Task ID" field="ID" className="w-16" />
                   <SortHeader label="Task Name" field="Title" />
                   <ColHeader label="Brand" field="PlanName" filterKey="brand" filterOptions={BRANDS} />
                   <ColHeader label="Priority" field="field_8" filterKey="priority" filterOptions={PRIORITIES} />
@@ -318,15 +356,9 @@ export default function Dashboard() {
                   <SortHeader label="Due Date" field="DueDate_DT" />
                   <ColHeader label="Owner" field="Owner" filterKey="owner" filterOptions={ownerOptions} />
                   <ColHeader label="Assign To" field="Assign_x0020_To" filterKey="assignTo" filterOptions={assignToOptions} />
-                  <th className="px-3 py-2 text-left align-top">
-                    <div className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">Hold Reason</div>
-                  </th>
-                  <th className="px-3 py-2 text-left align-top">
-                    <div className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">Block Reason</div>
-                  </th>
-                  <th className="px-3 py-2 text-left align-top">
-                    <div className="text-gray-400 text-xs uppercase font-semibold">Notes</div>
-                  </th>
+                  <StaticHeader label="Hold Reason" />
+                  <StaticHeader label="Block Reason" />
+                  <StaticHeader label="Notes" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
@@ -343,7 +375,7 @@ export default function Dashboard() {
                       onClick={() => setSelectedTask(task)}
                       className="hover:bg-gray-900 transition-colors cursor-pointer"
                     >
-                      <td className="px-3 py-3 text-gray-500 text-xs font-mono w-16">#{task.ID}</td>
+                      <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
                       <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">{task.Title}</td>
                       <td className="px-3 py-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>
@@ -366,30 +398,22 @@ export default function Dashboard() {
                         ) : <span className="text-gray-700">—</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
-                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_4 || "—"}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs max-w-[160px] truncate">{task.field_4 || "—"}</td>
                       <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
                       <td className="px-3 py-3 text-gray-400 text-xs">{task.field_3 || "—"}</td>
-                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
-                        {formatDate(task.StartDate_x0028_DT_x0029_)}
-                      </td>
-                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
-                        {formatDate(task.DueDate_DT)}
-                      </td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.StartDate_x0028_DT_x0029_)}</td>
+                      <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.DueDate_DT)}</td>
                       <td className="px-3 py-3 text-gray-300 text-xs">{task.Owner?.Title || "—"}</td>
                       <td className="px-3 py-3 text-gray-300 text-xs">{task.Assign_x0020_To?.Title || "—"}</td>
                       <td className="px-3 py-3">
-                        {task.HoldReason ? (
-                          <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span>
-                        ) : (
-                          <span className="text-transparent text-xs select-none">—</span>
-                        )}
+                        {task.HoldReason
+                          ? <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span>
+                          : <span className="text-transparent text-xs select-none">—</span>}
                       </td>
                       <td className="px-3 py-3">
-                        {task.BlockReason ? (
-                          <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span>
-                        ) : (
-                          <span className="text-transparent text-xs select-none">—</span>
-                        )}
+                        {task.BlockReason
+                          ? <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span>
+                          : <span className="text-transparent text-xs select-none">—</span>}
                       </td>
                       <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">
                         {task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}
@@ -452,18 +476,10 @@ export default function Dashboard() {
       )}
 
       {selectedTask && (
-        <TaskDetailModal
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onSave={handleSave}
-          onDelete={handleDelete}
-        />
+        <TaskDetailModal task={selectedTask} onClose={() => setSelectedTask(null)} onSave={handleSave} onDelete={handleDelete} />
       )}
       {showCreateModal && (
-        <CreateTaskModal
-          onClose={() => setShowCreateModal(false)}
-          onSubmit={handleCreate}
-        />
+        <CreateTaskModal onClose={() => setShowCreateModal(false)} onSubmit={handleCreate} />
       )}
     </main>
   );

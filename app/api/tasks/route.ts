@@ -3,41 +3,26 @@ import { NextRequest, NextResponse } from "next/server";
 const SP_SITE = "https://valwhitneyllc.sharepoint.com/sites/ValWhitneyLLC";
 const LIST_NAME = "Unified_Master_Task_List";
 
+const DEFAULT_SELECT = [
+  "ID", "Title", "Status", "PlanName", "field_1", "field_6", "field_8",
+  "field_4", "field_5", "field_3", "Flag", "BlockReason", "HoldReason",
+  "ResumeDate", "DueDate_DT", "StartDate_x0028_DT_x0029_",
+  "GracePeriod_x0028_Days_x0029_", "HasDependencies", "HasChecklist",
+  "ChecklistProgress", "ReminderValue", "ReminderUnit", "ArchiveFlagged",
+  "field_11", "Owner/Title", "Assign_x0020_To/Title",
+].join(",");
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-
   if (!authHeader) {
     return NextResponse.json({ error: "No authorization header" }, { status: 401 });
   }
 
-  const select = [
-    "ID",
-    "Title",
-    "Status",
-    "PlanName",
-    "field_1",
-    "field_6",
-    "field_8",
-    "field_4",
-    "field_5",
-    "Flag",
-    "BlockReason",
-    "HoldReason",
-    "ResumeDate",
-    "DueDate_DT",
-    "StartDate_x0028_DT_x0029_",
-    "GracePeriod_x0028_Days_x0029_",
-    "field_3",
-    "HasDependencies",
-    "HasChecklist",
-    "ChecklistProgress",
-    "ReminderValue",
-    "ReminderUnit",
-    "ArchiveFlagged",
-    "field_11",
-  ].join(",");
+  const incoming = req.nextUrl.searchParams;
+  const select = incoming.get("$select") || DEFAULT_SELECT;
+  const expand = incoming.get("$expand") || "Owner,Assign_x0020_To";
 
-  const url = `${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$select=${select}&$orderby=ID desc&$top=500`;
+  const url = `${SP_SITE}/_api/lists/getbytitle('${LIST_NAME}')/items?$select=${select}&$expand=${expand}&$orderby=ID desc&$top=500`;
 
   try {
     const spResponse = await fetch(url, {
@@ -50,7 +35,7 @@ export async function GET(req: NextRequest) {
     const responseText = await spResponse.text();
 
     if (!spResponse.ok) {
-      console.log("SP 400 detail:", responseText.substring(0, 1000));
+      console.log("SP GET detail:", responseText.substring(0, 1000));
       return NextResponse.json({
         error: "SharePoint error",
         status: spResponse.status,
@@ -67,7 +52,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-
   if (!authHeader) {
     return NextResponse.json({ error: "No authorization header" }, { status: 401 });
   }
@@ -79,7 +63,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Validate required fields
   if (!body.Title || !body.PlanName || !body.field_8) {
     return NextResponse.json(
       { error: "Missing required fields: Title, PlanName, field_8 (Priority)" },
@@ -87,7 +70,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Build payload — required fields always included
   const payload: Record<string, any> = {
     Title: body.Title,
     PlanName: body.PlanName,
@@ -96,7 +78,6 @@ export async function POST(req: NextRequest) {
     field_6: "0%",
   };
 
-  // Optional fields — only include if provided and non-empty
   if (body.field_4) payload["field_4"] = body.field_4;
   if (body.field_5) payload["field_5"] = body.field_5;
   if (body.field_3) payload["field_3"] = body.field_3;
