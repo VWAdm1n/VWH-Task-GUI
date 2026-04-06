@@ -159,7 +159,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
 
   if (mode === "details") {
     return (
-      <div style={{ textAlign: "left", width: "100%" }}>
+      <div style={{ width: "100%" }}>
         <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Task Details</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 mb-4 text-sm">
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Task Name</span><span className="text-gray-200">{task.Title}</span></div>
@@ -183,7 +183,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-4" />
-        <div style={{ textAlign: "center", marginTop: "8px" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
           <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}>Edit</button>
           <button onClick={handleCancelTask} disabled={saving} style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}>{cancelling ? "Confirm?" : "Cancel"}</button>
           <button onClick={handleDelete} disabled={deleting} style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}>{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
@@ -193,7 +193,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
   }
 
   return (
-    <div style={{ textAlign: "left", width: "100%" }}>
+    <div style={{ width: "100%" }}>
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2">
@@ -268,7 +268,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
         </div>
       </div>
       <hr className="border-gray-700 mb-4" />
-      <div style={{ textAlign: "center", marginTop: "8px" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
         <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}>{saving ? "Saving…" : "Save"}</button>
         <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} style={{ ...btnBase, background: "#374151", color: "#d1d5db", opacity: saving ? 0.5 : 1 }}>Cancel</button>
       </div>
@@ -728,10 +728,8 @@ export default function Dashboard() {
                           </tr>
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
-                              <td colSpan={17} className="py-5 bg-gray-800 border-b border-gray-700" style={{ textAlign: "center", padding: "20px 24px" }}>
-                                <div style={{ textAlign: "left", display: "inline-block", width: "100%", maxWidth: "1200px" }}>
-                                  <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
-                                </div>
+                              <td colSpan={17} className="bg-gray-800 border-b border-gray-700" style={{ padding: "20px 24px" }}>
+                                <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
                               </td>
                             </tr>
                           )}
