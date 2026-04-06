@@ -892,11 +892,19 @@ export default function Dashboard() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getToken = useCallback(async (): Promise<string> => {
-    const response = await instance.acquireTokenSilent({
-      scopes: SP_SCOPES,
-      account: accounts[0],
-    });
-    return response.accessToken;
+    try {
+      const response = await instance.acquireTokenSilent({
+        scopes: SP_SCOPES,
+        account: accounts[0],
+      });
+      return response.accessToken;
+    } catch {
+      const response = await instance.acquireTokenPopup({
+        scopes: SP_SCOPES,
+        account: accounts[0],
+      });
+      return response.accessToken;
+    }
   }, [instance, accounts]);
 
   const showToast = useCallback(() => {
