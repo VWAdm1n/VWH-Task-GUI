@@ -72,7 +72,7 @@ const btnBase: React.CSSProperties = {
   borderRadius: "6px",
   cursor: "pointer",
   border: "none",
-  transition: "background 150ms",
+  transition: "background 150ms, transform 100ms, box-shadow 150ms",
 };
 
 function SavedToast({ visible }: { visible: boolean }) {
@@ -154,7 +154,14 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
     finally { setDeleting(false); }
   };
 
-  const inputClass = "w-full bg-gray-700 text-white text-sm rounded px-3 py-1.5 border border-gray-600 focus:outline-none focus:border-blue-500";
+  // ── Field focus glow — consistent across all inputs/selects/textareas in Edit mode
+  const inputClass = [
+    "w-full bg-gray-700 text-white text-sm rounded px-3 py-1.5",
+    "border border-gray-600",
+    "focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30",
+    "transition-all duration-150",
+  ].join(" ");
+
   const labelClass = "text-xs text-gray-500 uppercase tracking-wide mb-1 block";
 
   if (mode === "details") {
@@ -183,10 +190,31 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-4" />
+
+        {/* ── Mode 1 buttons — Edit / Cancel / Delete with hover states ── */}
         <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-          <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}>Edit</button>
-          <button onClick={handleCancelTask} disabled={saving} style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}>{cancelling ? "Confirm?" : "Cancel"}</button>
-          <button onClick={handleDelete} disabled={deleting} style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}>{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
+          <button
+            onClick={() => setMode("edit")}
+            style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+          >Edit</button>
+
+          <button
+            onClick={handleCancelTask}
+            disabled={saving}
+            style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}
+            onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#a16207"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(202,138,4,0.3)"; } }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#ca8a04"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+          >{cancelling ? "Confirm?" : "Cancel"}</button>
+
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}
+            onMouseEnter={(e) => { if (!deleting) { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; (e.currentTarget as HTMLButtonElement).style.color = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#4b5563"; } }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1f2937"; (e.currentTarget as HTMLButtonElement).style.color = "#9ca3af"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#374151"; }}
+          >{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
         </div>
       </div>
     );
@@ -268,9 +296,24 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
         </div>
       </div>
       <hr className="border-gray-700 mb-4" />
+
+      {/* ── Mode 2 buttons — Save / Cancel with hover states ── */}
       <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-        <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}>{saving ? "Saving…" : "Save"}</button>
-        <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving} style={{ ...btnBase, background: "#374151", color: "#d1d5db", opacity: saving ? 0.5 : 1 }}>Cancel</button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
+          onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; } }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+        >{saving ? "Saving…" : "Save"}</button>
+
+        <button
+          onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }}
+          disabled={saving}
+          style={{ ...btnBase, background: "#374151", color: "#d1d5db", opacity: saving ? 0.5 : 1 }}
+          onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#4b5563"; (e.currentTarget as HTMLButtonElement).style.color = "#f3f4f6"; } }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; (e.currentTarget as HTMLButtonElement).style.color = "#d1d5db"; }}
+        >Cancel</button>
       </div>
     </div>
   );
