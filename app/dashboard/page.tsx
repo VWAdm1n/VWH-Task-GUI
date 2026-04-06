@@ -159,7 +159,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
 
   if (mode === "details") {
     return (
-      <div style={{ width: "100%" }}>
+      <div style={{ textAlign: "left", width: "100%" }}>
         <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Task Details</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 mb-4 text-sm">
           <div><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Task Name</span><span className="text-gray-200">{task.Title}</span></div>
@@ -193,7 +193,7 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
   }
 
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ textAlign: "left", width: "100%" }}>
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div className="md:col-span-2">
@@ -728,8 +728,10 @@ export default function Dashboard() {
                           </tr>
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
-                              <td colSpan={17} className="px-6 py-5 bg-gray-800 border-b border-gray-700">
-                                <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
+                              <td colSpan={17} className="py-5 bg-gray-800 border-b border-gray-700" style={{ textAlign: "center", padding: "20px 24px" }}>
+                                <div style={{ textAlign: "left", display: "inline-block", width: "100%", maxWidth: "1200px" }}>
+                                  <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
+                                </div>
                               </td>
                             </tr>
                           )}
