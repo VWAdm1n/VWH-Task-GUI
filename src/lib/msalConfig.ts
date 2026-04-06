@@ -10,9 +10,11 @@ export const msalConfig: Configuration = {
     clientId: "7a166b45-e483-44fa-8de9-6311fc469beb",
     authority: "https://login.microsoftonline.com/ff21ca89-36c3-40b5-a2c0-09ef234aa219",
     redirectUri,
+    navigateToLoginRequestUrl: false,
   },
   cache: {
     cacheLocation: "sessionStorage",
+    storeAuthStateInCookie: true,
   },
 };
 

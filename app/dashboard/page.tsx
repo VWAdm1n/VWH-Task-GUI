@@ -18,6 +18,7 @@ const QUARTERS_EDIT = ["2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4", "2027-Q1", "2
 const QUARTERS = ["All", ...QUARTERS_EDIT];
 const PROGRESS_OPTIONS = ["0%", "10%", "25%", "50%", "75%", "90%", "100%"];
 const FLAG_OPTIONS = ["None", "Blocked", "On Hold"];
+const SP_SCOPES = ["https://valwhitneyllc.sharepoint.com/.default"];
 
 const BRAND_COLORS: Record<string, string> = {
   VW: "bg-orange-900 text-orange-200",
@@ -61,6 +62,24 @@ interface Filters {
   phase: string; quarter: string; owner: string; assignTo: string;
 }
 
+interface ChecklistItem {
+  ID: number;
+  Title: string;
+  ParentTaskID: number;
+  Completed: boolean;
+  CompletedDate?: string | null;
+  Notes?: string;
+}
+
+interface DependencyItem {
+  ID: number;
+  Dependent_x0020_Task_x0020_ID: number;
+  BlockingTaskID: number;
+  DependencyType?: string;
+  blockingTaskTitle?: string;
+  blockingTaskStatus?: string;
+}
+
 const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
 
 const btnBase: React.CSSProperties = {
@@ -75,6 +94,356 @@ const btnBase: React.CSSProperties = {
   transition: "background 150ms, transform 100ms, box-shadow 150ms",
 };
 
+// ── 7-stage chromatic progress bar ───────────────────────────────────────────
+function getProgressColor(pct: number): string {
+  if (pct === 0) return "#ffffff";
+  if (pct <= 20) {
+    const t = pct / 20;
+    return `rgb(255,${Math.round(255 - t * 21)},${Math.round(255 - t * 255)})`;
+  }
+  if (pct <= 40) {
+    const t = (pct - 20) / 20;
+    return `rgb(255,${Math.round(234 - t * 34)},0)`;
+  }
+  if (pct <= 60) {
+    const t = (pct - 40) / 20;
+    return `rgb(${Math.round(255 - t * 196)},${Math.round(200 - t * 70)},${Math.round(t * 246)})`;
+  }
+  if (pct <= 80) {
+    const t = (pct - 60) / 20;
+    return `rgb(${Math.round(59 - t * 59)},${Math.round(130 - t * 130)},${Math.round(246 - t * 46)})`;
+  }
+  if (pct < 100) {
+    const t = (pct - 80) / 20;
+    return `rgb(0,${Math.round(t * 200)},${Math.round(200 - t * 50)})`;
+  }
+  return "#22c55e";
+}
+
+function ProgressBar({ pct, total, completed, compact = false }: {
+  pct: number; total: number; completed: number; compact?: boolean;
+}) {
+  const color = getProgressColor(pct);
+  const remaining = total - completed;
+  return (
+    <div style={{ width: "100%" }}>
+      <div style={{
+        width: "100%", height: compact ? "6px" : "10px",
+        background: "#374151", borderRadius: "999px", overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${pct}%`, height: "100%", background: color,
+          borderRadius: "999px",
+          transition: "width 600ms ease, background 600ms ease",
+        }} />
+      </div>
+      {!compact && (
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", fontSize: "11px" }}>
+          <span style={{ color: pct === 100 ? "#22c55e" : "#9ca3af" }}>
+            {pct === 100 ? "✅ All subtasks complete" : `${pct}% complete`}
+          </span>
+          {pct < 100 && <span style={{ color: "#6b7280" }}>{remaining} remaining</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Subtask Panel ─────────────────────────────────────────────────────────────
+function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
+  taskId: number;
+  getToken: () => Promise<string>;
+  onProgressUpdate: (pct: number) => void;
+  readOnly: boolean;
+}) {
+  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newTitle, setNewTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const pct = useMemo(() => {
+    if (items.length === 0) return 0;
+    return Math.round((items.filter((i) => i.Completed).length / items.length) * 100);
+  }, [items]);
+
+  const completed = items.filter((i) => i.Completed).length;
+
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      const tok = await getToken();
+      const res = await fetch(`/api/tasks/${taskId}/checklist`, {
+        headers: { Authorization: `Bearer ${tok}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.value ?? []);
+      }
+    } catch (err) { console.error("SubtaskPanel fetch error:", err); }
+    finally { setLoading(false); }
+  }, [taskId, getToken]);
+
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { onProgressUpdate(pct); }, [pct, onProgressUpdate]);
+
+  const toggleItem = async (item: ChecklistItem) => {
+    const newCompleted = !item.Completed;
+    setItems((prev) => prev.map((i) => i.ID === item.ID ? { ...i, Completed: newCompleted } : i));
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${taskId}/checklist`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ checklistItemId: item.ID, completed: newCompleted }),
+      });
+    } catch (err) { console.error("Toggle error:", err); }
+  };
+
+  const addItem = async () => {
+    if (!newTitle.trim()) return;
+    setAdding(true);
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${taskId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+      setNewTitle("");
+      await fetchItems();
+    } catch (err) { console.error("Add error:", err); }
+    finally { setAdding(false); }
+  };
+
+  const removeItem = async (itemId: number) => {
+    setItems((prev) => prev.filter((i) => i.ID !== itemId));
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${taskId}/checklist`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ checklistItemId: itemId }),
+      });
+    } catch (err) { console.error("Remove error:", err); }
+  };
+
+  if (loading) return <p className="text-xs text-gray-500 mt-2">Loading subtasks…</p>;
+
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">
+        Subtasks {items.length > 0 && `(${completed}/${items.length})`}
+      </p>
+      {items.length > 0 && (
+        <div style={{ marginBottom: "10px" }}>
+          <ProgressBar pct={pct} total={items.length} completed={completed} />
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
+        {items.map((item) => (
+          <div key={item.ID} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <input
+              type="checkbox"
+              checked={item.Completed}
+              onChange={() => toggleItem(item)}
+              style={{ accentColor: "#22c55e", width: "14px", height: "14px", cursor: "pointer", flexShrink: 0 }}
+            />
+            <span style={{
+              fontSize: "13px", flex: 1,
+              color: item.Completed ? "#6b7280" : "#e5e7eb",
+              textDecoration: item.Completed ? "line-through" : "none",
+              transition: "color 200ms",
+            }}>{item.Title}</span>
+            {!readOnly && (
+              <button onClick={() => removeItem(item.ID)} style={{
+                background: "none", border: "none", color: "#4b5563",
+                cursor: "pointer", fontSize: "12px", padding: "2px 4px", lineHeight: 1,
+              }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ef4444"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#4b5563"; }}>✕</button>
+            )}
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-xs text-gray-600">No subtasks yet.</p>}
+      </div>
+      {!readOnly && (
+        <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+          <input
+            type="text" value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addItem(); }}
+            placeholder="Add subtask…"
+            style={{
+              flex: 1, background: "#374151", border: "1px solid #4b5563",
+              borderRadius: "6px", color: "#e5e7eb", fontSize: "12px",
+              padding: "5px 10px", outline: "none",
+            }}
+          />
+          <button onClick={addItem} disabled={adding || !newTitle.trim()} style={{
+            ...btnBase, margin: 0, background: "#2563eb", color: "#fff",
+            opacity: adding || !newTitle.trim() ? 0.5 : 1, padding: "5px 12px",
+          }}>Add</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dependency Panel ──────────────────────────────────────────────────────────
+function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, readOnly }: {
+  taskId: number;
+  getToken: () => Promise<string>;
+  allTasks: any[];
+  onRequestCreateTask: () => void;
+  readOnly: boolean;
+}) {
+  const [deps, setDeps] = useState<DependencyItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const fetchDeps = useCallback(async () => {
+    setLoading(true);
+    try {
+      const tok = await getToken();
+      const res = await fetch(`/api/tasks/${taskId}/dependencies`, {
+        headers: { Authorization: `Bearer ${tok}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const enriched = (data.value ?? []).map((d: DependencyItem) => {
+          const blocking = allTasks.find((t) => t.ID === d.BlockingTaskID);
+          return {
+            ...d,
+            blockingTaskTitle: blocking?.Title ?? `Task #${d.BlockingTaskID}`,
+            blockingTaskStatus: blocking?.Status ?? "—",
+          };
+        });
+        setDeps(enriched);
+      }
+    } catch (err) { console.error("DependencyPanel fetch error:", err); }
+    finally { setLoading(false); }
+  }, [taskId, getToken, allTasks]);
+
+  useEffect(() => { fetchDeps(); }, [fetchDeps]);
+
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return allTasks.filter((t) =>
+      t.ID !== taskId &&
+      !deps.some((d) => d.BlockingTaskID === t.ID) &&
+      (String(t.ID).includes(q) || (t.Title ?? "").toLowerCase().includes(q))
+    ).slice(0, 8);
+  }, [search, allTasks, taskId, deps]);
+
+  const addDep = async (blockingTaskId: number) => {
+    setAdding(true);
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${taskId}/dependencies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ blockingTaskId, dependencyType: "Finish-to-Start" }),
+      });
+      setSearch("");
+      await fetchDeps();
+    } catch (err) { console.error("Add dep error:", err); }
+    finally { setAdding(false); }
+  };
+
+  const removeDep = async (depRecordId: number) => {
+    setDeps((prev) => prev.filter((d) => d.ID !== depRecordId));
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${taskId}/dependencies`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ depRecordId }),
+      });
+    } catch (err) { console.error("Remove dep error:", err); }
+  };
+
+  if (loading) return <p className="text-xs text-gray-500 mt-2">Loading prerequisites…</p>;
+
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">
+        Prerequisites {deps.length > 0 && `(${deps.length})`}
+      </p>
+      {deps.length === 0 && <p className="text-xs text-gray-600 mb-2">No prerequisites defined.</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
+        {deps.map((dep) => (
+          <div key={dep.ID} style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            background: "#1f2937", borderRadius: "6px", padding: "6px 10px",
+          }}>
+            <span style={{ fontSize: "10px", color: "#6b7280", fontFamily: "monospace", flexShrink: 0 }}>
+              #{dep.BlockingTaskID}
+            </span>
+            <span style={{ fontSize: "12px", color: "#e5e7eb", flex: 1 }}>{dep.blockingTaskTitle}</span>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[dep.blockingTaskStatus ?? ""] || "bg-gray-700 text-gray-300"}`}>
+              {dep.blockingTaskStatus}
+            </span>
+            {!readOnly && (
+              <button onClick={() => removeDep(dep.ID)} style={{
+                background: "none", border: "none", color: "#4b5563",
+                cursor: "pointer", fontSize: "12px", padding: "2px 4px",
+              }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ef4444"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#4b5563"; }}>✕</button>
+            )}
+          </div>
+        ))}
+      </div>
+      {!readOnly && (
+        <div style={{ position: "relative" }}>
+          <input
+            type="text" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tasks to add as prerequisite…"
+            style={{
+              width: "100%", background: "#374151", border: "1px solid #4b5563",
+              borderRadius: "6px", color: "#e5e7eb", fontSize: "12px",
+              padding: "5px 10px", outline: "none", boxSizing: "border-box",
+            }}
+          />
+          {search.trim() && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 0, marginTop: "4px",
+              background: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.6)", zIndex: 9999,
+              maxHeight: "220px", overflowY: "auto",
+            }}>
+              {searchResults.length > 0 ? searchResults.map((t) => (
+                <button key={t.ID} onMouseDown={() => addDep(t.ID)} style={{
+                  display: "flex", alignItems: "center", gap: "8px",
+                  width: "100%", padding: "7px 12px", background: "transparent",
+                  border: "none", cursor: "pointer", textAlign: "left",
+                }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                  <span style={{ fontSize: "10px", color: "#6b7280", fontFamily: "monospace" }}>#{t.ID}</span>
+                  <span style={{ fontSize: "12px", color: "#e5e7eb", flex: 1 }}>{t.Title}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${STATUS_COLORS[t.Status] || "bg-gray-700 text-gray-300"}`}>{t.Status}</span>
+                </button>
+              )) : (
+                <div style={{ padding: "10px 12px" }}>
+                  <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>No matching tasks found.</p>
+                  <button onMouseDown={onRequestCreateTask} style={{
+                    fontSize: "12px", color: "#60a5fa", background: "none",
+                    border: "none", cursor: "pointer", padding: 0,
+                  }}>+ Create new task as prerequisite</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SavedToast({ visible }: { visible: boolean }) {
   return (
     <div style={{
@@ -88,12 +457,15 @@ function SavedToast({ visible }: { visible: boolean }) {
   );
 }
 
-function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
+function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onShowToast, onRequestCreateTask }: {
   task: any;
+  allTasks: any[];
+  getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onClose: () => void;
   onShowToast: () => void;
+  onRequestCreateTask: () => void;
 }) {
   const [mode, setMode] = useState<PanelMode>("details");
   const [title, setTitle] = useState(task.Title || "");
@@ -119,6 +491,19 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
     try { return new Date(val).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
     catch { return "—"; }
   };
+
+  const handleProgressUpdate = useCallback(async (pct: number) => {
+    const pctStr = `${pct}%`;
+    setProgress(pctStr);
+    try {
+      const tok = await getToken();
+      await fetch(`/api/tasks/${task.ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ field_6: pctStr }),
+      });
+    } catch (err) { console.error("Progress auto-update failed:", err); }
+  }, [task.ID, getToken]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -154,7 +539,6 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
     finally { setDeleting(false); }
   };
 
-  // ── Field focus glow — consistent across all inputs/selects/textareas in Edit mode
   const inputClass = [
     "w-full bg-gray-700 text-white text-sm rounded px-3 py-1.5",
     "border border-gray-600",
@@ -189,29 +573,22 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
         {task.HoldReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Hold Reason</span><span className="text-yellow-300 text-sm italic">{task.HoldReason}</span></div>}
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
-        <hr className="border-gray-700 mb-4" />
 
-        {/* ── Mode 1 buttons — Edit / Cancel / Delete with hover states ── */}
+        <hr className="border-gray-700 mb-3" />
+        <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
+        <hr className="border-gray-700 mt-4 mb-3" />
+        <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={true} />
+        <hr className="border-gray-700 mt-4 mb-4" />
+
         <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-          <button
-            onClick={() => setMode("edit")}
-            style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
+          <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
-          >Edit</button>
-
-          <button
-            onClick={handleCancelTask}
-            disabled={saving}
-            style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}>Edit</button>
+          <button onClick={handleCancelTask} disabled={saving} style={{ ...btnBase, background: "#ca8a04", color: "#000", opacity: saving ? 0.5 : 1 }}
             onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#a16207"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(202,138,4,0.3)"; } }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#ca8a04"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
           >{cancelling ? "Confirm?" : "Cancel"}</button>
-
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}
+          <button onClick={handleDelete} disabled={deleting} style={{ ...btnBase, background: "#1f2937", color: "#9ca3af", border: "1px solid #374151", opacity: deleting ? 0.5 : 1 }}
             onMouseEnter={(e) => { if (!deleting) { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; (e.currentTarget as HTMLButtonElement).style.color = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#4b5563"; } }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1f2937"; (e.currentTarget as HTMLButtonElement).style.color = "#9ca3af"; (e.currentTarget as HTMLButtonElement).style.borderColor = "#374151"; }}
           >{confirmDelete ? "Confirm?" : deleting ? "Deleting…" : "Delete"}</button>
@@ -295,21 +672,19 @@ function InlinePanel({ task, onSave, onDelete, onClose, onShowToast }: {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Add notes…" className={`${inputClass} resize-none`} />
         </div>
       </div>
-      <hr className="border-gray-700 mb-4" />
 
-      {/* ── Mode 2 buttons — Save / Cancel with hover states ── */}
+      <hr className="border-gray-700 mb-3" />
+      <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
+      <hr className="border-gray-700 mt-4 mb-3" />
+      <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={false} />
+      <hr className="border-gray-700 mt-4 mb-4" />
+
       <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
+        <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
           onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; } }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
         >{saving ? "Saving…" : "Save"}</button>
-
-        <button
-          onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }}
-          disabled={saving}
+        <button onClick={() => { setMode("details"); setCancelling(false); setConfirmDelete(false); }} disabled={saving}
           style={{ ...btnBase, background: "#374151", color: "#d1d5db", opacity: saving ? 0.5 : 1 }}
           onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#4b5563"; (e.currentTarget as HTMLButtonElement).style.color = "#f3f4f6"; } }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; (e.currentTarget as HTMLButtonElement).style.color = "#d1d5db"; }}
@@ -328,17 +703,15 @@ function HoverFilter({ value, options, onChange, active }: {
   const hide = useCallback(() => { hideTimer.current = setTimeout(() => setVisible(false), 250); }, []);
   const select = (v: string) => { onChange(v); if (hideTimer.current) clearTimeout(hideTimer.current); setVisible(false); };
 
-  const flyoutStyle: React.CSSProperties = {
-    position: "absolute", top: "100%", left: 0, marginTop: "4px", zIndex: 9999,
-    opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity 200ms ease",
-    backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.6)", minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0",
-  };
-
   return (
     <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }} onMouseEnter={show} onMouseLeave={hide}>
       <span style={{ marginLeft: "4px", fontSize: "11px", userSelect: "none", transition: "color 150ms" }} className={active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"}>▾</span>
-      <div style={flyoutStyle} onMouseEnter={show} onMouseLeave={hide}>
+      <div style={{
+        position: "absolute", top: "100%", left: 0, marginTop: "4px", zIndex: 9999,
+        opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity 200ms ease",
+        backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.6)", minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0",
+      }} onMouseEnter={show} onMouseLeave={hide}>
         {options.map((o, i) => (
           <button key={o} onMouseDown={(e) => { e.preventDefault(); select(o); }}
             style={{
@@ -363,14 +736,18 @@ function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField:
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-function TaskCard({ task, expanded, onToggle, onSave, onDelete, onShowToast, formatDate, truncate }: {
+function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, formatDate, truncate }: {
   task: any; expanded: boolean; onToggle: () => void;
+  allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onShowToast: () => void;
+  onRequestCreateTask: () => void;
   formatDate: (v: string | null) => string;
   truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
+  const pct = task.field_6 ? parseInt((task.field_6 as string).replace("%", "")) || 0 : 0;
+
   return (
     <div className={`border rounded-lg transition-colors duration-150 ${expanded ? "border-blue-700 bg-gray-900" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
       <div onClick={onToggle} className="p-4 cursor-pointer">
@@ -391,25 +768,30 @@ function TaskCard({ task, expanded, onToggle, onSave, onDelete, onShowToast, for
           <span>{task.StartDate_x0028_DT_x0029_ ? `${formatDate(task.StartDate_x0028_DT_x0029_)} → ` : ""}{formatDate(task.DueDate_DT)}</span>
         </div>
         {task.field_4 && <div className="text-xs text-gray-600 mt-1">{task.field_4}</div>}
-        {task.field_6 && task.field_6 !== "0%" && <div className="text-xs text-blue-400 mt-1">{task.field_6} complete</div>}
+        {pct > 0 && (
+          <div style={{ marginTop: "8px" }}>
+            <ProgressBar pct={pct} total={100} completed={pct} compact={true} />
+          </div>
+        )}
         {task.HoldReason && <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>}
         {task.BlockReason && <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>}
         {task.field_11 && <div className="text-xs text-gray-500 italic mt-1 truncate">📝 {truncate(task.field_11, 60)}</div>}
       </div>
-      <div style={{ overflow: "hidden", maxHeight: expanded ? "900px" : "0px", opacity: expanded ? 1 : 0, transition: "max-height 350ms ease, opacity 250ms ease" }}>
+      <div style={{ overflow: "hidden", maxHeight: expanded ? "1400px" : "0px", opacity: expanded ? 1 : 0, transition: "max-height 350ms ease, opacity 250ms ease" }}>
         <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-          <InlinePanel task={task} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} />
+          <InlinePanel task={task} allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} />
         </div>
       </div>
     </div>
   );
 }
 
-function BucketGroupedCards({ tasks, onSave, onDelete, onShowToast, formatDate, truncate }: {
-  tasks: any[];
+function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, formatDate, truncate }: {
+  tasks: any[]; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onShowToast: () => void;
+  onRequestCreateTask: () => void;
   formatDate: (v: string | null) => string;
   truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
@@ -476,7 +858,9 @@ function BucketGroupedCards({ tasks, onSave, onDelete, onShowToast, formatDate, 
                     key={task.ID} task={task}
                     expanded={expandedId === task.ID}
                     onToggle={() => setExpandedId((prev) => (prev === task.ID ? null : task.ID))}
-                    onSave={onSave} onDelete={onDelete} onShowToast={onShowToast}
+                    allTasks={allTasks} getToken={getToken}
+                    onSave={onSave} onDelete={onDelete}
+                    onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask}
                     formatDate={formatDate} truncate={truncate}
                   />
                 ))}
@@ -506,6 +890,14 @@ export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getToken = useCallback(async (): Promise<string> => {
+    const response = await instance.acquireTokenSilent({
+      scopes: SP_SCOPES,
+      account: accounts[0],
+    });
+    return response.accessToken;
+  }, [instance, accounts]);
 
   const showToast = useCallback(() => {
     setToastVisible(true);
@@ -603,12 +995,10 @@ export default function Dashboard() {
 
   const handleSave = async (id: number, updates: Record<string, any>) => {
     try {
-      const tokenResponse = await instance.acquireTokenSilent({
-        scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-      });
+      const tok = await getToken();
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify(updates),
       });
       if (!res.ok) { const d = await res.json(); console.error("PATCH failed:", d); throw new Error("Save failed"); }
@@ -618,12 +1008,10 @@ export default function Dashboard() {
 
   const handleDelete = async (id: number, brand: string) => {
     try {
-      const tokenResponse = await instance.acquireTokenSilent({
-        scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-      });
+      const tok = await getToken();
       const res = await fetch(`/api/tasks/${id}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ brand }),
       });
       if (!res.ok) { const d = await res.json(); console.error("DELETE failed:", d); throw new Error("Delete failed"); }
@@ -634,12 +1022,10 @@ export default function Dashboard() {
 
   const handleCreate = async (payload: Record<string, any>) => {
     try {
-      const tokenResponse = await instance.acquireTokenSilent({
-        scopes: ["https://valwhitneyllc.sharepoint.com/.default"], account: accounts[0],
-      });
+      const tok = await getToken();
       const res = await fetch("/api/tasks", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenResponse.accessToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify(payload),
       });
       if (!res.ok) { const d = await res.json(); console.error("POST failed:", d); throw new Error("Create failed"); }
@@ -709,11 +1095,11 @@ export default function Dashboard() {
       {!loading && !error && (
         <>
           <div className="md:hidden">
-            <BucketGroupedCards tasks={filtered} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} formatDate={formatDate} truncate={truncate} />
+            <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} formatDate={formatDate} truncate={truncate} />
           </div>
           <div className="hidden md:block">
             {viewMode === "card" ? (
-              <BucketGroupedCards tasks={filtered} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} formatDate={formatDate} truncate={truncate} />
+              <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} formatDate={formatDate} truncate={truncate} />
             ) : (
               <div className="rounded-lg border border-gray-800" style={{ overflowX: "auto", overflowY: "visible" }}>
                 <table className="w-full text-sm" style={{ overflow: "visible" }}>
@@ -772,7 +1158,7 @@ export default function Dashboard() {
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
                               <td colSpan={17} className="bg-gray-800 border-b border-gray-700" style={{ padding: "20px 24px" }}>
-                                <InlinePanel task={task} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} />
+                                <InlinePanel task={task} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} />
                               </td>
                             </tr>
                           )}
