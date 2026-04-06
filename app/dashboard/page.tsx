@@ -20,6 +20,42 @@ const PROGRESS_OPTIONS = ["0%", "10%", "25%", "50%", "75%", "90%", "100%"];
 const FLAG_OPTIONS = ["None", "Blocked", "On Hold"];
 const SP_SCOPES = ["https://valwhitneyllc.sharepoint.com/.default"];
 
+const COL_WIDTHS_KEY = "vwh_col_widths";
+const COL_MIN_WIDTHS: Record<string, number> = { Title: 120 };
+const COL_DEFAULT_WIDTHS: Record<string, number> = {
+  ID: 80,
+  Title: 200,
+  PlanName: 100,
+  field_8: 100,
+  Status: 110,
+  Flag: 90,
+  field_6: 90,
+  field_4: 160,
+  field_5: 100,
+  field_3: 120,
+  StartDate: 120,
+  DueDate: 120,
+  Owner: 120,
+  AssignTo: 120,
+  HoldReason: 150,
+  BlockReason: 150,
+  Notes: 160,
+};
+
+const COL_KEYS = Object.keys(COL_DEFAULT_WIDTHS);
+
+function loadColWidths(): Record<string, number> {
+  try {
+    const stored = localStorage.getItem(COL_WIDTHS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // merge with defaults in case new columns were added
+      return { ...COL_DEFAULT_WIDTHS, ...parsed };
+    }
+  } catch {}
+  return { ...COL_DEFAULT_WIDTHS };
+}
+
 const BRAND_COLORS: Record<string, string> = {
   VW: "bg-orange-900 text-orange-200",
   VaLyn: "bg-blue-900 text-blue-200",
@@ -580,7 +616,7 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
         <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={true} />
         <hr className="border-gray-700 mt-4 mb-4" />
 
-        <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
+        <div style={{ textAlign: "center", marginTop: "8px" }}>
           <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}>Edit</button>
@@ -679,7 +715,7 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
       <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={false} />
       <hr className="border-gray-700 mt-4 mb-4" />
 
-      <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "8px" }}>
+      <div style={{ textAlign: "center", marginTop: "8px" }}>
         <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
           onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; } }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#2563eb"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
@@ -734,6 +770,64 @@ function HoverFilter({ value, options, onChange, active }: {
 function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
   if (sortField !== field) return <span className="text-gray-700 ml-1 text-xs">↕</span>;
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
+}
+
+// ── Resize Handle ─────────────────────────────────────────────────────────────
+function ResizeHandle({ colKey, onResize }: {
+  colKey: string;
+  onResize: (colKey: string, delta: number) => void;
+}) {
+  const startX = useRef<number>(0);
+  const dragging = useRef(false);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startX.current = e.clientX;
+    dragging.current = true;
+
+    const onMouseMove = (me: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = me.clientX - startX.current;
+      startX.current = me.clientX;
+      onResize(colKey, delta);
+    };
+
+    const onMouseUp = () => {
+      dragging.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [colKey, onResize]);
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      style={{
+        position: "absolute",
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: "6px",
+        cursor: "col-resize",
+        zIndex: 10,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(59,130,246,0.5)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+    >
+      <div style={{ width: "1px", height: "60%", background: "#374151" }} />
+    </div>
+  );
 }
 
 function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, formatDate, truncate }: {
@@ -891,6 +985,23 @@ export default function Dashboard() {
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Column resize state ───────────────────────────────────────────────────
+  const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULT_WIDTHS);
+
+  useEffect(() => {
+    setColWidths(loadColWidths());
+  }, []);
+
+  const handleResize = useCallback((colKey: string, delta: number) => {
+    setColWidths((prev) => {
+      const minW = COL_MIN_WIDTHS[colKey] ?? 80;
+      const newW = Math.max(minW, (prev[colKey] ?? COL_DEFAULT_WIDTHS[colKey] ?? 100) + delta);
+      const next = { ...prev, [colKey]: newW };
+      try { localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
   const getToken = useCallback(async (): Promise<string> => {
     try {
       const response = await instance.acquireTokenSilent({
@@ -1042,32 +1153,58 @@ export default function Dashboard() {
     } catch (err: any) { console.error("handleCreate error:", err); throw err; }
   };
 
-  const SortHeader = ({ label, field, className = "" }: { label: string; field: SortField; className?: string }) => (
-    <th className={`px-3 py-3 text-left align-middle ${className}`}>
+  // ── Column header builders ─────────────────────────────────────────────────
+  const thStyle = (colKey: string): React.CSSProperties => ({
+    position: "relative",
+    width: `${colWidths[colKey] ?? 100}px`,
+    minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`,
+    maxWidth: `${colWidths[colKey] ?? 100}px`,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    padding: "10px 12px 10px 12px",
+    verticalAlign: "middle",
+  });
+
+  const tdStyle = (colKey: string): React.CSSProperties => ({
+    width: `${colWidths[colKey] ?? 100}px`,
+    minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`,
+    maxWidth: `${colWidths[colKey] ?? 100}px`,
+    overflow: "hidden",
+    padding: "8px 12px",
+    verticalAlign: "middle",
+  });
+
+  const SortHeader = ({ label, field, colKey }: { label: string; field: SortField; colKey: string }) => (
+    <th style={thStyle(colKey)}>
       <div className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors duration-150 text-xs uppercase font-semibold whitespace-nowrap" onClick={() => handleSort(field)}>
         {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
       </div>
+      <ResizeHandle colKey={colKey} onResize={handleResize} />
     </th>
   );
 
-  const ColHeader = ({ label, field, filterKey, filterOptions, className = "" }: {
-    label: string; field: SortField; filterKey: keyof Filters; filterOptions: string[]; className?: string;
+  const ColHeader = ({ label, field, colKey, filterKey, filterOptions }: {
+    label: string; field: SortField; colKey: string; filterKey: keyof Filters; filterOptions: string[];
   }) => (
-    <th className={`px-3 py-3 text-left align-middle ${className}`} style={{ overflow: "visible" }}>
+    <th style={{ ...thStyle(colKey), overflow: "visible" }}>
       <div className="flex items-center gap-0.5 whitespace-nowrap">
         <span className="flex items-center gap-0.5 cursor-pointer select-none text-gray-400 hover:text-white transition-colors duration-150 text-xs uppercase font-semibold" onClick={() => handleSort(field)}>
           {label}<SortArrow field={field} sortField={sortField} sortDir={sortDir} />
         </span>
         <HoverFilter value={filters[filterKey]} options={filterOptions} onChange={(v) => setFilter(filterKey, v)} active={filters[filterKey] !== "All"} />
       </div>
+      <ResizeHandle colKey={colKey} onResize={handleResize} />
     </th>
   );
 
-  const StaticHeader = ({ label, className = "" }: { label: string; className?: string }) => (
-    <th className={`px-3 py-3 text-left align-middle ${className}`}>
+  const StaticHeader = ({ label, colKey }: { label: string; colKey: string }) => (
+    <th style={thStyle(colKey)}>
       <span className="text-gray-400 text-xs uppercase font-semibold whitespace-nowrap">{label}</span>
+      <ResizeHandle colKey={colKey} onResize={handleResize} />
     </th>
   );
+
+  const totalTableWidth = COL_KEYS.reduce((sum, k) => sum + (colWidths[k] ?? COL_DEFAULT_WIDTHS[k] ?? 100), 0);
 
   return (
     <main className="min-h-screen bg-gray-950 text-white p-4 md:p-6">
@@ -1109,27 +1246,35 @@ export default function Dashboard() {
             {viewMode === "card" ? (
               <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} formatDate={formatDate} truncate={truncate} />
             ) : (
-              <div className="rounded-lg border border-gray-800" style={{ overflowX: "auto", overflowY: "visible" }}>
-                <table className="w-full text-sm" style={{ overflow: "visible" }}>
+              <div style={{ width: "100%", overflowX: "auto", overflowY: "visible" }} className="rounded-lg border border-gray-800">
+                <table
+                  style={{
+                    tableLayout: "fixed",
+                    width: `${totalTableWidth}px`,
+                    minWidth: "100%",
+                    borderCollapse: "collapse",
+                    overflow: "visible",
+                  }}
+                >
                   <thead className="bg-gray-900 border-b border-gray-800" style={{ overflow: "visible" }}>
                     <tr style={{ overflow: "visible" }}>
-                      <SortHeader label="Task ID" field="ID" className="w-16" />
-                      <SortHeader label="Task Name" field="Title" />
-                      <ColHeader label="Brand" field="PlanName" filterKey="brand" filterOptions={BRANDS} />
-                      <ColHeader label="Priority" field="field_8" filterKey="priority" filterOptions={PRIORITIES} />
-                      <ColHeader label="Status" field="Status" filterKey="status" filterOptions={STATUSES} />
-                      <ColHeader label="Flag" field="Flag" filterKey="flag" filterOptions={FLAGS} />
-                      <SortHeader label="Progress" field="field_6" />
-                      <ColHeader label="Phase" field="field_4" filterKey="phase" filterOptions={PHASES} />
-                      <ColHeader label="Quarter" field="field_5" filterKey="quarter" filterOptions={QUARTERS} />
-                      <SortHeader label="Bucket" field="field_3" />
-                      <SortHeader label="Start Date" field="StartDate_x0028_DT_x0029_" />
-                      <SortHeader label="Due Date" field="DueDate_DT" />
-                      <ColHeader label="Owner" field="Owner" filterKey="owner" filterOptions={ownerOptions} />
-                      <ColHeader label="Assign To" field="Assign_x0020_To" filterKey="assignTo" filterOptions={assignToOptions} />
-                      <StaticHeader label="Hold Reason" />
-                      <StaticHeader label="Block Reason" />
-                      <StaticHeader label="Notes" />
+                      <SortHeader label="Task ID" field="ID" colKey="ID" />
+                      <SortHeader label="Task Name" field="Title" colKey="Title" />
+                      <ColHeader label="Brand" field="PlanName" colKey="PlanName" filterKey="brand" filterOptions={BRANDS} />
+                      <ColHeader label="Priority" field="field_8" colKey="field_8" filterKey="priority" filterOptions={PRIORITIES} />
+                      <ColHeader label="Status" field="Status" colKey="Status" filterKey="status" filterOptions={STATUSES} />
+                      <ColHeader label="Flag" field="Flag" colKey="Flag" filterKey="flag" filterOptions={FLAGS} />
+                      <SortHeader label="Progress" field="field_6" colKey="field_6" />
+                      <ColHeader label="Phase" field="field_4" colKey="field_4" filterKey="phase" filterOptions={PHASES} />
+                      <ColHeader label="Quarter" field="field_5" colKey="field_5" filterKey="quarter" filterOptions={QUARTERS} />
+                      <SortHeader label="Bucket" field="field_3" colKey="field_3" />
+                      <SortHeader label="Start Date" field="StartDate_x0028_DT_x0029_" colKey="StartDate" />
+                      <SortHeader label="Due Date" field="DueDate_DT" colKey="DueDate" />
+                      <ColHeader label="Owner" field="Owner" colKey="Owner" filterKey="owner" filterOptions={ownerOptions} />
+                      <ColHeader label="Assign To" field="Assign_x0020_To" colKey="AssignTo" filterKey="assignTo" filterOptions={assignToOptions} />
+                      <StaticHeader label="Hold Reason" colKey="HoldReason" />
+                      <StaticHeader label="Block Reason" colKey="BlockReason" />
+                      <StaticHeader label="Notes" colKey="Notes" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
@@ -1142,26 +1287,30 @@ export default function Dashboard() {
                             key={task.ID}
                             onClick={() => setExpandedRowId(expandedRowId === task.ID ? null : task.ID)}
                             className={`transition-colors duration-100 cursor-pointer ${expandedRowId === task.ID ? "bg-gray-800" : "hover:bg-gray-900"}`}
+                            style={{ height: "40px" }}
                           >
-                            <td className="px-3 py-3 text-gray-500 text-xs font-mono">#{task.ID}</td>
-                            <td className="px-3 py-3 text-white font-medium max-w-[220px] truncate">
-                              <span className="flex items-center gap-2">{task.Title}<span className={`text-gray-600 text-xs transition-transform duration-200 ${expandedRowId === task.ID ? "rotate-180" : ""}`}>▼</span></span>
+                            <td style={tdStyle("ID")} className="text-gray-500 text-xs font-mono">#{task.ID}</td>
+                            <td style={tdStyle("Title")} className="text-white font-medium">
+                              <span className="flex items-center gap-2 overflow-hidden">
+                                <span className="truncate">{task.Title}</span>
+                                <span className={`text-gray-600 text-xs shrink-0 transition-transform duration-200 ${expandedRowId === task.ID ? "rotate-180" : ""}`}>▼</span>
+                              </span>
                             </td>
-                            <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>{task.PlanName || "—"}</span></td>
-                            <td className={`px-3 py-3 text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>{task.field_8 || "—"}</td>
-                            <td className="px-3 py-3"><span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>{task.Status || "—"}</span></td>
-                            <td className="px-3 py-3">{task.Flag && task.Flag !== "None" ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span> : <span className="text-gray-700">—</span>}</td>
-                            <td className="px-3 py-3 text-gray-300 text-xs">{task.field_6 || "—"}</td>
-                            <td className="px-3 py-3 text-gray-400 text-xs max-w-[160px] truncate">{task.field_4 || "—"}</td>
-                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{task.field_5 || "—"}</td>
-                            <td className="px-3 py-3 text-gray-400 text-xs">{task.field_3 || "—"}</td>
-                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.StartDate_x0028_DT_x0029_)}</td>
-                            <td className="px-3 py-3 text-gray-400 text-xs whitespace-nowrap">{formatDate(task.DueDate_DT)}</td>
-                            <td className="px-3 py-3 text-gray-300 text-xs">{task.Owner?.Title || "—"}</td>
-                            <td className="px-3 py-3 text-gray-300 text-xs">{task.Assign_x0020_To?.Title || "—"}</td>
-                            <td className="px-3 py-3">{task.HoldReason ? <span className="text-yellow-300 text-xs italic">{truncate(task.HoldReason, 40)}</span> : <span className="text-transparent text-xs select-none">—</span>}</td>
-                            <td className="px-3 py-3">{task.BlockReason ? <span className="text-red-300 text-xs italic">{truncate(task.BlockReason, 40)}</span> : <span className="text-transparent text-xs select-none">—</span>}</td>
-                            <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">{task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}</td>
+                            <td style={tdStyle("PlanName")}><span className={`px-2 py-0.5 rounded text-xs font-medium ${BRAND_COLORS[task.PlanName] || "bg-gray-700 text-gray-300"}`}>{task.PlanName || "—"}</span></td>
+                            <td style={tdStyle("field_8")} className={`text-xs font-medium ${PRIORITY_COLORS[task.field_8] || "text-gray-400"}`}>{task.field_8 || "—"}</td>
+                            <td style={tdStyle("Status")}><span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-300"}`}>{task.Status || "—"}</span></td>
+                            <td style={tdStyle("Flag")}>{task.Flag && task.Flag !== "None" ? <span className={`px-2 py-0.5 rounded text-xs font-medium ${FLAG_COLORS[task.Flag] || "bg-gray-700 text-gray-300"}`}>{task.Flag}</span> : <span className="text-gray-700 text-xs">—</span>}</td>
+                            <td style={tdStyle("field_6")} className="text-gray-300 text-xs">{task.field_6 || "—"}</td>
+                            <td style={tdStyle("field_4")} className="text-gray-400 text-xs truncate">{task.field_4 || "—"}</td>
+                            <td style={tdStyle("field_5")} className="text-gray-400 text-xs">{task.field_5 || "—"}</td>
+                            <td style={tdStyle("field_3")} className="text-gray-400 text-xs truncate">{task.field_3 || "—"}</td>
+                            <td style={tdStyle("StartDate")} className="text-gray-400 text-xs">{formatDate(task.StartDate_x0028_DT_x0029_)}</td>
+                            <td style={tdStyle("DueDate")} className="text-gray-400 text-xs">{formatDate(task.DueDate_DT)}</td>
+                            <td style={tdStyle("Owner")} className="text-gray-300 text-xs truncate">{task.Owner?.Title || "—"}</td>
+                            <td style={tdStyle("AssignTo")} className="text-gray-300 text-xs truncate">{task.Assign_x0020_To?.Title || "—"}</td>
+                            <td style={tdStyle("HoldReason")}>{task.HoldReason ? <span className="text-yellow-300 text-xs italic truncate block">{truncate(task.HoldReason, 40)}</span> : <span className="text-gray-800 text-xs">—</span>}</td>
+                            <td style={tdStyle("BlockReason")}>{task.BlockReason ? <span className="text-red-300 text-xs italic truncate block">{truncate(task.BlockReason, 40)}</span> : <span className="text-gray-800 text-xs">—</span>}</td>
+                            <td style={tdStyle("Notes")} className="text-gray-500 text-xs truncate">{task.field_11 ? truncate(task.field_11, 45) : <span className="text-gray-800">—</span>}</td>
                           </tr>
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
