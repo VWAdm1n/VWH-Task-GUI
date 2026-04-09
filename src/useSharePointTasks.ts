@@ -1,5 +1,5 @@
 import { useMsal } from "@azure/msal-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const SELECT_FIELDS = [
   "ID", "Title", "Status", "PlanName", "field_1", "field_6", "field_8",
@@ -17,24 +17,40 @@ export function useSharePointTasks() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isThrottled, setIsThrottled] = useState(false);
+
+  const accountId = accounts[0]?.homeAccountId ?? null;
+  const accountRef = useRef(accounts);
+  accountRef.current = accounts;
 
   const fetchTasks = useCallback(async () => {
-    if (accounts.length === 0) return;
+    if (!accountId) return;
     setLoading(true);
     setError(null);
+    setIsThrottled(false);
+
     try {
       const tokenResponse = await instance.acquireTokenSilent({
         scopes: ["https://valwhitneyllc.sharepoint.com/.default"],
-        account: accounts[0],
+        account: accountRef.current[0],
       });
+
       const response = await fetch(
         `/api/tasks?$select=${encodeURIComponent(SELECT_FIELDS)}&$expand=${EXPAND_FIELDS}`,
         { headers: { Authorization: `Bearer ${tokenResponse.accessToken}` } }
       );
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to fetch tasks");
+
+      if (response.status === 429) {
+        setIsThrottled(true);
+        setLoading(false);
+        return;
       }
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Request failed (${response.status})`);
+      }
+
       const data = await response.json();
       setTasks(data.value || []);
     } catch (err: any) {
@@ -42,9 +58,12 @@ export function useSharePointTasks() {
     } finally {
       setLoading(false);
     }
-  }, [instance, accounts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instance, accountId]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
-  return { tasks, loading, error, refetch: fetchTasks };
+  return { tasks, loading, error, isThrottled, refetch: fetchTasks, retryNow: fetchTasks };
 }
