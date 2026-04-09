@@ -23,72 +23,41 @@ const SP_SCOPES = ["https://valwhitneyllc.sharepoint.com/.default"];
 const COL_WIDTHS_KEY = "vwh_col_widths";
 const COL_MIN_WIDTHS: Record<string, number> = { Title: 120 };
 const COL_DEFAULT_WIDTHS: Record<string, number> = {
-  ID: 80,
-  Title: 200,
-  PlanName: 100,
-  field_8: 100,
-  Status: 110,
-  Flag: 90,
-  field_6: 90,
-  field_4: 160,
-  field_5: 100,
-  field_3: 120,
-  StartDate: 120,
-  DueDate: 120,
-  Owner: 120,
-  AssignTo: 120,
-  HoldReason: 150,
-  BlockReason: 150,
-  Notes: 160,
+  ID: 80, Title: 200, PlanName: 100, field_8: 100, Status: 110, Flag: 90,
+  field_6: 90, field_4: 160, field_5: 100, field_3: 120, StartDate: 120,
+  DueDate: 120, Owner: 120, AssignTo: 120, HoldReason: 150, BlockReason: 150, Notes: 160,
 };
-
 const COL_KEYS = Object.keys(COL_DEFAULT_WIDTHS);
 
 function loadColWidths(): Record<string, number> {
   try {
     const stored = localStorage.getItem(COL_WIDTHS_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // merge with defaults in case new columns were added
-      return { ...COL_DEFAULT_WIDTHS, ...parsed };
-    }
+    if (stored) return { ...COL_DEFAULT_WIDTHS, ...JSON.parse(stored) };
   } catch {}
   return { ...COL_DEFAULT_WIDTHS };
 }
 
 const BRAND_COLORS: Record<string, string> = {
-  VW: "bg-orange-900 text-orange-200",
-  VaLyn: "bg-blue-900 text-blue-200",
-  "The Ride": "bg-green-900 text-green-200",
-  smarTEK: "bg-purple-900 text-purple-200",
+  VW: "bg-orange-900 text-orange-200", VaLyn: "bg-blue-900 text-blue-200",
+  "The Ride": "bg-green-900 text-green-200", smarTEK: "bg-purple-900 text-purple-200",
   Po1: "bg-yellow-900 text-yellow-200",
 };
-
 const STATUS_COLORS: Record<string, string> = {
-  Queue: "bg-gray-700 text-gray-200",
-  "In Progress": "bg-blue-700 text-blue-100",
-  Completed: "bg-green-700 text-green-100",
-  Cancelled: "bg-red-900 text-red-200",
+  Queue: "bg-gray-700 text-gray-200", "In Progress": "bg-blue-700 text-blue-100",
+  Completed: "bg-green-700 text-green-100", Cancelled: "bg-red-900 text-red-200",
 };
-
 const FLAG_COLORS: Record<string, string> = {
-  Blocked: "bg-red-700 text-red-100",
-  "On Hold": "bg-yellow-700 text-yellow-100",
+  Blocked: "bg-red-700 text-red-100", "On Hold": "bg-yellow-700 text-yellow-100",
 };
-
 const PRIORITY_COLORS: Record<string, string> = {
-  Critical: "text-red-400",
-  Urgent: "text-orange-400",
-  Important: "text-yellow-400",
-  Normal: "text-gray-300",
-  Low: "text-gray-500",
+  Critical: "text-red-400", Urgent: "text-orange-400", Important: "text-yellow-400",
+  Normal: "text-gray-300", Low: "text-gray-500",
 };
 
 type SortField =
   | "ID" | "Title" | "PlanName" | "field_8" | "Status" | "Flag"
   | "field_6" | "field_4" | "field_5" | "field_3"
   | "StartDate_x0028_DT_x0029_" | "DueDate_DT" | "Owner" | "Assign_x0020_To";
-
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "card";
 type PanelMode = "details" | "edit";
@@ -97,62 +66,30 @@ interface Filters {
   brand: string; status: string; priority: string; flag: string;
   phase: string; quarter: string; owner: string; assignTo: string;
 }
-
 interface ChecklistItem {
-  ID: number;
-  Title: string;
-  ParentTaskID: number;
-  Completed: boolean;
-  CompletedDate?: string | null;
-  Notes?: string;
+  ID: number; Title: string; ParentTaskID: number; Completed: boolean;
+  CompletedDate?: string | null; Notes?: string;
 }
-
 interface DependencyItem {
-  ID: number;
-  Dependent_x0020_Task_x0020_ID: number;
-  BlockingTaskID: number;
-  DependencyType?: string;
-  blockingTaskTitle?: string;
-  blockingTaskStatus?: string;
+  ID: number; Dependent_x0020_Task_x0020_ID: number; BlockingTaskID: number;
+  DependencyType?: string; blockingTaskTitle?: string; blockingTaskStatus?: string;
 }
 
 const BUCKET_STORAGE_KEY = "vwh_bucket_collapsed";
 
 const btnBase: React.CSSProperties = {
-  display: "inline-block",
-  margin: "0 6px",
-  padding: "6px 16px",
-  fontSize: "12px",
-  fontWeight: 500,
-  borderRadius: "6px",
-  cursor: "pointer",
-  border: "none",
-  transition: "background 150ms, transform 100ms, box-shadow 150ms",
+  display: "inline-block", margin: "0 6px", padding: "6px 16px",
+  fontSize: "12px", fontWeight: 500, borderRadius: "6px", cursor: "pointer",
+  border: "none", transition: "background 150ms, transform 100ms, box-shadow 150ms",
 };
 
-// ── 7-stage chromatic progress bar ───────────────────────────────────────────
 function getProgressColor(pct: number): string {
   if (pct === 0) return "#ffffff";
-  if (pct <= 20) {
-    const t = pct / 20;
-    return `rgb(255,${Math.round(255 - t * 21)},${Math.round(255 - t * 255)})`;
-  }
-  if (pct <= 40) {
-    const t = (pct - 20) / 20;
-    return `rgb(255,${Math.round(234 - t * 34)},0)`;
-  }
-  if (pct <= 60) {
-    const t = (pct - 40) / 20;
-    return `rgb(${Math.round(255 - t * 196)},${Math.round(200 - t * 70)},${Math.round(t * 246)})`;
-  }
-  if (pct <= 80) {
-    const t = (pct - 60) / 20;
-    return `rgb(${Math.round(59 - t * 59)},${Math.round(130 - t * 130)},${Math.round(246 - t * 46)})`;
-  }
-  if (pct < 100) {
-    const t = (pct - 80) / 20;
-    return `rgb(0,${Math.round(t * 200)},${Math.round(200 - t * 50)})`;
-  }
+  if (pct <= 20) { const t = pct / 20; return `rgb(255,${Math.round(255 - t * 21)},${Math.round(255 - t * 255)})`; }
+  if (pct <= 40) { const t = (pct - 20) / 20; return `rgb(255,${Math.round(234 - t * 34)},0)`; }
+  if (pct <= 60) { const t = (pct - 40) / 20; return `rgb(${Math.round(255 - t * 196)},${Math.round(200 - t * 70)},${Math.round(t * 246)})`; }
+  if (pct <= 80) { const t = (pct - 60) / 20; return `rgb(${Math.round(59 - t * 59)},${Math.round(130 - t * 130)},${Math.round(246 - t * 46)})`; }
+  if (pct < 100) { const t = (pct - 80) / 20; return `rgb(0,${Math.round(t * 200)},${Math.round(200 - t * 50)})`; }
   return "#22c55e";
 }
 
@@ -163,21 +100,12 @@ function ProgressBar({ pct, total, completed, compact = false }: {
   const remaining = total - completed;
   return (
     <div style={{ width: "100%" }}>
-      <div style={{
-        width: "100%", height: compact ? "6px" : "10px",
-        background: "#374151", borderRadius: "999px", overflow: "hidden",
-      }}>
-        <div style={{
-          width: `${pct}%`, height: "100%", background: color,
-          borderRadius: "999px",
-          transition: "width 600ms ease, background 600ms ease",
-        }} />
+      <div style={{ width: "100%", height: compact ? "6px" : "10px", background: "#374151", borderRadius: "999px", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "999px", transition: "width 600ms ease, background 600ms ease" }} />
       </div>
       {!compact && (
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", fontSize: "11px" }}>
-          <span style={{ color: pct === 100 ? "#22c55e" : "#9ca3af" }}>
-            {pct === 100 ? "✅ All subtasks complete" : `${pct}% complete`}
-          </span>
+          <span style={{ color: pct === 100 ? "#22c55e" : "#9ca3af" }}>{pct === 100 ? "✅ All subtasks complete" : `${pct}% complete`}</span>
           {pct < 100 && <span style={{ color: "#6b7280" }}>{remaining} remaining</span>}
         </div>
       )}
@@ -185,12 +113,9 @@ function ProgressBar({ pct, total, completed, compact = false }: {
   );
 }
 
-// ── Subtask Panel ─────────────────────────────────────────────────────────────
 function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
-  taskId: number;
-  getToken: () => Promise<string>;
-  onProgressUpdate: (pct: number) => void;
-  readOnly: boolean;
+  taskId: number; getToken: () => Promise<string>;
+  onProgressUpdate: (pct: number) => void; readOnly: boolean;
 }) {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,20 +126,14 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     if (items.length === 0) return 0;
     return Math.round((items.filter((i) => i.Completed).length / items.length) * 100);
   }, [items]);
-
   const completed = items.filter((i) => i.Completed).length;
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const tok = await getToken();
-      const res = await fetch(`/api/tasks/${taskId}/checklist`, {
-        headers: { Authorization: `Bearer ${tok}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setItems(data.value ?? []);
-      }
+      const res = await fetch(`/api/tasks/${taskId}/checklist`, { headers: { Authorization: `Bearer ${tok}` } });
+      if (res.ok) { const data = await res.json(); setItems(data.value ?? []); }
     } catch (err) { console.error("SubtaskPanel fetch error:", err); }
     finally { setLoading(false); }
   }, [taskId, getToken]);
@@ -228,8 +147,7 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${taskId}/checklist`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ checklistItemId: item.ID, completed: newCompleted }),
       });
     } catch (err) { console.error("Toggle error:", err); }
@@ -241,12 +159,10 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${taskId}/checklist`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ title: newTitle.trim() }),
       });
-      setNewTitle("");
-      await fetchItems();
+      setNewTitle(""); await fetchItems();
     } catch (err) { console.error("Add error:", err); }
     finally { setAdding(false); }
   };
@@ -256,8 +172,7 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${taskId}/checklist`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ checklistItemId: itemId }),
       });
     } catch (err) { console.error("Remove error:", err); }
@@ -270,31 +185,15 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">
         Subtasks {items.length > 0 && `(${completed}/${items.length})`}
       </p>
-      {items.length > 0 && (
-        <div style={{ marginBottom: "10px" }}>
-          <ProgressBar pct={pct} total={items.length} completed={completed} />
-        </div>
-      )}
+      {items.length > 0 && <div style={{ marginBottom: "10px" }}><ProgressBar pct={pct} total={items.length} completed={completed} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
         {items.map((item) => (
           <div key={item.ID} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <input
-              type="checkbox"
-              checked={item.Completed}
-              onChange={() => toggleItem(item)}
-              style={{ accentColor: "#22c55e", width: "14px", height: "14px", cursor: "pointer", flexShrink: 0 }}
-            />
-            <span style={{
-              fontSize: "13px", flex: 1,
-              color: item.Completed ? "#6b7280" : "#e5e7eb",
-              textDecoration: item.Completed ? "line-through" : "none",
-              transition: "color 200ms",
-            }}>{item.Title}</span>
+            <input type="checkbox" checked={item.Completed} onChange={() => toggleItem(item)}
+              style={{ accentColor: "#22c55e", width: "14px", height: "14px", cursor: "pointer", flexShrink: 0 }} />
+            <span style={{ fontSize: "13px", flex: 1, color: item.Completed ? "#6b7280" : "#e5e7eb", textDecoration: item.Completed ? "line-through" : "none", transition: "color 200ms" }}>{item.Title}</span>
             {!readOnly && (
-              <button onClick={() => removeItem(item.ID)} style={{
-                background: "none", border: "none", color: "#4b5563",
-                cursor: "pointer", fontSize: "12px", padding: "2px 4px", lineHeight: 1,
-              }}
+              <button onClick={() => removeItem(item.ID)} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "12px", padding: "2px 4px", lineHeight: 1 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ef4444"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#4b5563"; }}>✕</button>
             )}
@@ -304,56 +203,35 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
       </div>
       {!readOnly && (
         <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
-          <input
-            type="text" value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") addItem(); }}
-            placeholder="Add subtask…"
-            style={{
-              flex: 1, background: "#374151", border: "1px solid #4b5563",
-              borderRadius: "6px", color: "#e5e7eb", fontSize: "12px",
-              padding: "5px 10px", outline: "none",
-            }}
-          />
-          <button onClick={addItem} disabled={adding || !newTitle.trim()} style={{
-            ...btnBase, margin: 0, background: "#2563eb", color: "#fff",
-            opacity: adding || !newTitle.trim() ? 0.5 : 1, padding: "5px 12px",
-          }}>Add</button>
+          <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addItem(); }} placeholder="Add subtask…"
+            style={{ flex: 1, background: "#374151", border: "1px solid #4b5563", borderRadius: "6px", color: "#e5e7eb", fontSize: "12px", padding: "5px 10px", outline: "none" }} />
+          <button onClick={addItem} disabled={adding || !newTitle.trim()}
+            style={{ ...btnBase, margin: 0, background: "#2563eb", color: "#fff", opacity: adding || !newTitle.trim() ? 0.5 : 1, padding: "5px 12px" }}>Add</button>
         </div>
       )}
     </div>
   );
 }
 
-// ── Dependency Panel ──────────────────────────────────────────────────────────
 function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, readOnly }: {
-  taskId: number;
-  getToken: () => Promise<string>;
-  allTasks: any[];
-  onRequestCreateTask: () => void;
-  readOnly: boolean;
+  taskId: number; getToken: () => Promise<string>; allTasks: any[];
+  onRequestCreateTask: () => void; readOnly: boolean;
 }) {
   const [deps, setDeps] = useState<DependencyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [adding, setAdding] = useState(false);
 
   const fetchDeps = useCallback(async () => {
     setLoading(true);
     try {
       const tok = await getToken();
-      const res = await fetch(`/api/tasks/${taskId}/dependencies`, {
-        headers: { Authorization: `Bearer ${tok}` },
-      });
+      const res = await fetch(`/api/tasks/${taskId}/dependencies`, { headers: { Authorization: `Bearer ${tok}` } });
       if (res.ok) {
         const data = await res.json();
         const enriched = (data.value ?? []).map((d: DependencyItem) => {
           const blocking = allTasks.find((t) => t.ID === d.BlockingTaskID);
-          return {
-            ...d,
-            blockingTaskTitle: blocking?.Title ?? `Task #${d.BlockingTaskID}`,
-            blockingTaskStatus: blocking?.Status ?? "—",
-          };
+          return { ...d, blockingTaskTitle: blocking?.Title ?? `Task #${d.BlockingTaskID}`, blockingTaskStatus: blocking?.Status ?? "—" };
         });
         setDeps(enriched);
       }
@@ -367,25 +245,20 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
     if (!search.trim()) return [];
     const q = search.toLowerCase();
     return allTasks.filter((t) =>
-      t.ID !== taskId &&
-      !deps.some((d) => d.BlockingTaskID === t.ID) &&
+      t.ID !== taskId && !deps.some((d) => d.BlockingTaskID === t.ID) &&
       (String(t.ID).includes(q) || (t.Title ?? "").toLowerCase().includes(q))
     ).slice(0, 8);
   }, [search, allTasks, taskId, deps]);
 
   const addDep = async (blockingTaskId: number) => {
-    setAdding(true);
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${taskId}/dependencies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ blockingTaskId, dependencyType: "Finish-to-Start" }),
       });
-      setSearch("");
-      await fetchDeps();
+      setSearch(""); await fetchDeps();
     } catch (err) { console.error("Add dep error:", err); }
-    finally { setAdding(false); }
   };
 
   const removeDep = async (depRecordId: number) => {
@@ -393,8 +266,7 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${taskId}/dependencies`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ depRecordId }),
       });
     } catch (err) { console.error("Remove dep error:", err); }
@@ -410,22 +282,12 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
       {deps.length === 0 && <p className="text-xs text-gray-600 mb-2">No prerequisites defined.</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "8px" }}>
         {deps.map((dep) => (
-          <div key={dep.ID} style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            background: "#1f2937", borderRadius: "6px", padding: "6px 10px",
-          }}>
-            <span style={{ fontSize: "10px", color: "#6b7280", fontFamily: "monospace", flexShrink: 0 }}>
-              #{dep.BlockingTaskID}
-            </span>
+          <div key={dep.ID} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#111827", borderRadius: "6px", padding: "6px 10px" }}>
+            <span style={{ fontSize: "10px", color: "#6b7280", fontFamily: "monospace", flexShrink: 0 }}>#{dep.BlockingTaskID}</span>
             <span style={{ fontSize: "12px", color: "#e5e7eb", flex: 1 }}>{dep.blockingTaskTitle}</span>
-            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[dep.blockingTaskStatus ?? ""] || "bg-gray-700 text-gray-300"}`}>
-              {dep.blockingTaskStatus}
-            </span>
+            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[dep.blockingTaskStatus ?? ""] || "bg-gray-700 text-gray-300"}`}>{dep.blockingTaskStatus}</span>
             {!readOnly && (
-              <button onClick={() => removeDep(dep.ID)} style={{
-                background: "none", border: "none", color: "#4b5563",
-                cursor: "pointer", fontSize: "12px", padding: "2px 4px",
-              }}
+              <button onClick={() => removeDep(dep.ID)} style={{ background: "none", border: "none", color: "#4b5563", cursor: "pointer", fontSize: "12px", padding: "2px 4px" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#ef4444"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#4b5563"; }}>✕</button>
             )}
@@ -434,29 +296,14 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
       </div>
       {!readOnly && (
         <div style={{ position: "relative" }}>
-          <input
-            type="text" value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tasks to add as prerequisite…"
-            style={{
-              width: "100%", background: "#374151", border: "1px solid #4b5563",
-              borderRadius: "6px", color: "#e5e7eb", fontSize: "12px",
-              padding: "5px 10px", outline: "none", boxSizing: "border-box",
-            }}
-          />
+            style={{ width: "100%", background: "#374151", border: "1px solid #4b5563", borderRadius: "6px", color: "#e5e7eb", fontSize: "12px", padding: "5px 10px", outline: "none", boxSizing: "border-box" }} />
           {search.trim() && (
-            <div style={{
-              position: "absolute", top: "100%", left: 0, right: 0, marginTop: "4px",
-              background: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.6)", zIndex: 9999,
-              maxHeight: "220px", overflowY: "auto",
-            }}>
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: "4px", background: "#1f2937", border: "1px solid #374151", borderRadius: "8px", boxShadow: "0 20px 40px rgba(0,0,0,0.6)", zIndex: 9999, maxHeight: "220px", overflowY: "auto" }}>
               {searchResults.length > 0 ? searchResults.map((t) => (
-                <button key={t.ID} onMouseDown={() => addDep(t.ID)} style={{
-                  display: "flex", alignItems: "center", gap: "8px",
-                  width: "100%", padding: "7px 12px", background: "transparent",
-                  border: "none", cursor: "pointer", textAlign: "left",
-                }}
+                <button key={t.ID} onMouseDown={() => addDep(t.ID)}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "7px 12px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#374151"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
                   <span style={{ fontSize: "10px", color: "#6b7280", fontFamily: "monospace" }}>#{t.ID}</span>
@@ -466,10 +313,7 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
               )) : (
                 <div style={{ padding: "10px 12px" }}>
                   <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "6px" }}>No matching tasks found.</p>
-                  <button onMouseDown={onRequestCreateTask} style={{
-                    fontSize: "12px", color: "#60a5fa", background: "none",
-                    border: "none", cursor: "pointer", padding: 0,
-                  }}>+ Create new task as prerequisite</button>
+                  <button onMouseDown={onRequestCreateTask} style={{ fontSize: "12px", color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Create new task as prerequisite</button>
                 </div>
               )}
             </div>
@@ -482,26 +326,18 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
 
 function SavedToast({ visible }: { visible: boolean }) {
   return (
-    <div style={{
-      position: "fixed", top: "24px", left: "50%", transform: "translateX(-50%)",
-      zIndex: 99999, opacity: visible ? 1 : 0, transition: "opacity 300ms ease", pointerEvents: "none",
-    }}>
-      <div className="bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2">
-        ✅ Saved
-      </div>
+    <div style={{ position: "fixed", top: "24px", left: "50%", transform: "translateX(-50%)", zIndex: 99999, opacity: visible ? 1 : 0, transition: "opacity 300ms ease", pointerEvents: "none" }}>
+      <div className="bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2">✅ Saved</div>
     </div>
   );
 }
 
-function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onShowToast, onRequestCreateTask }: {
-  task: any;
-  allTasks: any[];
-  getToken: () => Promise<string>;
+function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onShowToast, onRequestCreateTask, onRefetch }: {
+  task: any; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
-  onClose: () => void;
-  onShowToast: () => void;
-  onRequestCreateTask: () => void;
+  onClose: () => void; onShowToast: () => void; onRequestCreateTask: () => void;
+  onRefetch: () => void;
 }) {
   const [mode, setMode] = useState<PanelMode>("details");
   const [title, setTitle] = useState(task.Title || "");
@@ -534,12 +370,12 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
     try {
       const tok = await getToken();
       await fetch(`/api/tasks/${task.ID}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
         body: JSON.stringify({ field_6: pctStr }),
       });
+      setTimeout(() => { onRefetch(); }, 1500);
     } catch (err) { console.error("Progress auto-update failed:", err); }
-  }, [task.ID, getToken]);
+  }, [task.ID, getToken, onRefetch]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -555,6 +391,7 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
       });
       setMode("details");
       onShowToast();
+      setTimeout(() => { onRefetch(); }, 2000);
     } catch { alert("Save failed. Please try again."); }
     finally { setSaving(false); }
   };
@@ -581,7 +418,6 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
     "focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30",
     "transition-all duration-150",
   ].join(" ");
-
   const labelClass = "text-xs text-gray-500 uppercase tracking-wide mb-1 block";
 
   if (mode === "details") {
@@ -609,13 +445,11 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
         {task.HoldReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Hold Reason</span><span className="text-yellow-300 text-sm italic">{task.HoldReason}</span></div>}
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
-
         <hr className="border-gray-700 mb-3" />
         <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
         <hr className="border-gray-700 mt-4 mb-3" />
         <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={true} />
         <hr className="border-gray-700 mt-4 mb-4" />
-
         <div style={{ textAlign: "center", marginTop: "8px" }}>
           <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; }}
@@ -633,6 +467,7 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
     );
   }
 
+  // ── Edit mode ─────────────────────────────────────────────────────────────
   return (
     <div style={{ width: "100%" }}>
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
@@ -642,63 +477,58 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Brand</label>
+          <label className={labelClass}>Status (auto)</label>
+          <div className={`px-3 py-1.5 rounded text-sm border border-gray-600 ${STATUS_COLORS[task.Status] || "bg-gray-700 text-gray-200"}`}>
+            {task.Status || "—"}
+          </div>
+        </div>
+        <div><label className={labelClass}>Brand</label>
           <select value={brand} onChange={(e) => setBrand(e.target.value)} className={inputClass}>
             {BRANDS_EDIT.map((b) => <option key={b}>{b}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelClass}>Priority</label>
+        <div><label className={labelClass}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputClass}>
             {PRIORITIES_EDIT.map((p) => <option key={p}>{p}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelClass}>Phase</label>
+        <div><label className={labelClass}>Progress</label>
+          <select value={progress} onChange={(e) => setProgress(e.target.value)} className={inputClass}>
+            {PROGRESS_OPTIONS.map((p) => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+        <div><label className={labelClass}>Flag</label>
+          <select value={flag} onChange={(e) => setFlag(e.target.value)} className={inputClass}>
+            {FLAG_OPTIONS.map((f) => <option key={f}>{f}</option>)}
+          </select>
+        </div>
+        <div><label className={labelClass}>Phase</label>
           <select value={phase} onChange={(e) => setPhase(e.target.value)} className={inputClass}>
             <option value="">— None —</option>
             {PHASES_EDIT.map((p) => <option key={p}>{p}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelClass}>Quarter</label>
+        <div><label className={labelClass}>Quarter</label>
           <select value={quarter} onChange={(e) => setQuarter(e.target.value)} className={inputClass}>
             <option value="">— None —</option>
             {QUARTERS_EDIT.map((q) => <option key={q}>{q}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelClass}>Bucket</label>
+        <div><label className={labelClass}>Bucket</label>
           <input type="text" value={bucket} onChange={(e) => setBucket(e.target.value)} placeholder="Bucket name" className={inputClass} />
         </div>
-        <div>
-          <label className={labelClass}>Start Date</label>
+        <div><label className={labelClass}>Start Date</label>
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputClass} />
         </div>
-        <div>
-          <label className={labelClass}>Due Date</label>
+        <div><label className={labelClass}>Due Date</label>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Progress</label>
-          <select value={progress} onChange={(e) => setProgress(e.target.value)} className={inputClass}>
-            {PROGRESS_OPTIONS.map((p) => <option key={p}>{p}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass}>Flag</label>
-          <select value={flag} onChange={(e) => setFlag(e.target.value)} className={inputClass}>
-            {FLAG_OPTIONS.map((f) => <option key={f}>{f}</option>)}
-          </select>
         </div>
         {flag === "On Hold" && (
           <>
-            <div>
-              <label className={labelClass}>Hold Reason</label>
+            <div><label className={labelClass}>Hold Reason</label>
               <input type="text" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="Why on hold?" className={inputClass} />
             </div>
-            <div>
-              <label className={labelClass}>Resume Date</label>
+            <div><label className={labelClass}>Resume Date</label>
               <input type="date" value={resumeDate} onChange={(e) => setResumeDate(e.target.value)} className={inputClass} />
             </div>
           </>
@@ -708,13 +538,11 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Add notes…" className={`${inputClass} resize-none`} />
         </div>
       </div>
-
       <hr className="border-gray-700 mb-3" />
       <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
       <hr className="border-gray-700 mt-4 mb-3" />
       <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={false} />
       <hr className="border-gray-700 mt-4 mb-4" />
-
       <div style={{ textAlign: "center", marginTop: "8px" }}>
         <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
           onMouseEnter={(e) => { if (!saving) { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 3px rgba(37,99,235,0.3)"; } }}
@@ -742,22 +570,10 @@ function HoverFilter({ value, options, onChange, active }: {
   return (
     <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }} onMouseEnter={show} onMouseLeave={hide}>
       <span style={{ marginLeft: "4px", fontSize: "11px", userSelect: "none", transition: "color 150ms" }} className={active ? "text-blue-400" : "text-gray-600 hover:text-gray-400"}>▾</span>
-      <div style={{
-        position: "absolute", top: "100%", left: 0, marginTop: "4px", zIndex: 9999,
-        opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity 200ms ease",
-        backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "8px",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.6)", minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0",
-      }} onMouseEnter={show} onMouseLeave={hide}>
+      <div style={{ position: "absolute", top: "100%", left: 0, marginTop: "4px", zIndex: 9999, opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity 200ms ease", backgroundColor: "#1f2937", border: "1px solid #374151", borderRadius: "8px", boxShadow: "0 20px 40px rgba(0,0,0,0.6)", minWidth: "180px", maxHeight: "220px", overflowY: "auto", padding: "4px 0" }} onMouseEnter={show} onMouseLeave={hide}>
         {options.map((o, i) => (
           <button key={o} onMouseDown={(e) => { e.preventDefault(); select(o); }}
-            style={{
-              display: "block", width: "100%", textAlign: "left", padding: "6px 12px", fontSize: "12px",
-              background: value === o ? "rgba(59,130,246,0.3)" : "transparent",
-              color: value === o ? "#93c5fd" : "#d1d5db", fontWeight: value === o ? 600 : 400,
-              border: "none", cursor: "pointer", opacity: visible ? 1 : 0,
-              transform: visible ? "translateY(0)" : "translateY(-6px)",
-              transition: visible ? `opacity 180ms ease ${i * 60}ms, transform 180ms ease ${i * 60}ms` : "opacity 100ms ease, transform 100ms ease",
-            }}
+            style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", fontSize: "12px", background: value === o ? "rgba(59,130,246,0.3)" : "transparent", color: value === o ? "#93c5fd" : "#d1d5db", fontWeight: value === o ? 600 : 400, border: "none", cursor: "pointer", opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(-6px)", transition: visible ? `opacity 180ms ease ${i * 60}ms, transform 180ms ease ${i * 60}ms` : "opacity 100ms ease, transform 100ms ease" }}
             onMouseEnter={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "#374151"; }}
             onMouseLeave={(e) => { if (value !== o) (e.target as HTMLElement).style.background = "transparent"; }}
           >{o}</button>
@@ -772,76 +588,44 @@ function SortArrow({ field, sortField, sortDir }: { field: SortField; sortField:
   return <span className="text-blue-400 ml-1 text-xs">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
-// ── Resize Handle ─────────────────────────────────────────────────────────────
-function ResizeHandle({ colKey, onResize }: {
-  colKey: string;
-  onResize: (colKey: string, delta: number) => void;
-}) {
+function ResizeHandle({ colKey, onResize }: { colKey: string; onResize: (colKey: string, delta: number) => void }) {
   const startX = useRef<number>(0);
   const dragging = useRef(false);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    startX.current = e.clientX;
-    dragging.current = true;
-
+    e.preventDefault(); e.stopPropagation();
+    startX.current = e.clientX; dragging.current = true;
     const onMouseMove = (me: MouseEvent) => {
       if (!dragging.current) return;
-      const delta = me.clientX - startX.current;
-      startX.current = me.clientX;
-      onResize(colKey, delta);
+      const delta = me.clientX - startX.current; startX.current = me.clientX; onResize(colKey, delta);
     };
-
     const onMouseUp = () => {
       dragging.current = false;
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove); document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
     };
-
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove); document.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
   }, [colKey, onResize]);
 
   return (
-    <div
-      onMouseDown={onMouseDown}
-      style={{
-        position: "absolute",
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: "6px",
-        cursor: "col-resize",
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+    <div onMouseDown={onMouseDown}
+      style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "6px", cursor: "col-resize", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center" }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(59,130,246,0.5)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-    >
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}>
       <div style={{ width: "1px", height: "60%", background: "#374151" }} />
     </div>
   );
 }
 
-function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, formatDate, truncate }: {
-  task: any; expanded: boolean; onToggle: () => void;
-  allTasks: any[]; getToken: () => Promise<string>;
+function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate }: {
+  task: any; expanded: boolean; onToggle: () => void; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
-  onShowToast: () => void;
-  onRequestCreateTask: () => void;
-  formatDate: (v: string | null) => string;
-  truncate: (v: string | null | undefined, len?: number) => string | null;
+  onShowToast: () => void; onRequestCreateTask: () => void; onRefetch: () => void;
+  formatDate: (v: string | null) => string; truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
   const pct = task.field_6 ? parseInt((task.field_6 as string).replace("%", "")) || 0 : 0;
-
   return (
     <div className={`border rounded-lg transition-colors duration-150 ${expanded ? "border-blue-700 bg-gray-900" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
       <div onClick={onToggle} className="p-4 cursor-pointer">
@@ -862,52 +646,35 @@ function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDele
           <span>{task.StartDate_x0028_DT_x0029_ ? `${formatDate(task.StartDate_x0028_DT_x0029_)} → ` : ""}{formatDate(task.DueDate_DT)}</span>
         </div>
         {task.field_4 && <div className="text-xs text-gray-600 mt-1">{task.field_4}</div>}
-        {pct > 0 && (
-          <div style={{ marginTop: "8px" }}>
-            <ProgressBar pct={pct} total={100} completed={pct} compact={true} />
-          </div>
-        )}
+        {pct > 0 && <div style={{ marginTop: "8px" }}><ProgressBar pct={pct} total={100} completed={pct} compact={true} /></div>}
         {task.HoldReason && <div className="text-xs text-yellow-400 italic mt-1 truncate">Hold: {task.HoldReason}</div>}
         {task.BlockReason && <div className="text-xs text-red-400 italic mt-1 truncate">Blocked: {task.BlockReason}</div>}
         {task.field_11 && <div className="text-xs text-gray-500 italic mt-1 truncate">📝 {truncate(task.field_11, 60)}</div>}
       </div>
       <div style={{ overflow: "hidden", maxHeight: expanded ? "1400px" : "0px", opacity: expanded ? 1 : 0, transition: "max-height 350ms ease, opacity 250ms ease" }}>
         <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-          <InlinePanel task={task} allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} />
+          <InlinePanel task={task} allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} onRefetch={onRefetch} />
         </div>
       </div>
     </div>
   );
 }
 
-function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, formatDate, truncate }: {
+function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate }: {
   tasks: any[]; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
-  onShowToast: () => void;
-  onRequestCreateTask: () => void;
-  formatDate: (v: string | null) => string;
-  truncate: (v: string | null | undefined, len?: number) => string | null;
+  onShowToast: () => void; onRequestCreateTask: () => void; onRefetch: () => void;
+  formatDate: (v: string | null) => string; truncate: (v: string | null | undefined, len?: number) => string | null;
 }) {
   const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
-    tasks.forEach((t) => {
-      const bucket = t.field_3 || "No Bucket";
-      if (!map.has(bucket)) map.set(bucket, []);
-      map.get(bucket)!.push(t);
-    });
-    return Array.from(map.entries()).sort(([a], [b]) => {
-      if (a === "No Bucket") return 1;
-      if (b === "No Bucket") return -1;
-      return a.localeCompare(b);
-    });
+    tasks.forEach((t) => { const bucket = t.field_3 || "No Bucket"; if (!map.has(bucket)) map.set(bucket, []); map.get(bucket)!.push(t); });
+    return Array.from(map.entries()).sort(([a], [b]) => { if (a === "No Bucket") return 1; if (b === "No Bucket") return -1; return a.localeCompare(b); });
   }, [tasks]);
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(BUCKET_STORAGE_KEY);
-      if (stored) return new Set(JSON.parse(stored));
-    } catch {}
+    try { const stored = localStorage.getItem(BUCKET_STORAGE_KEY); if (stored) return new Set(JSON.parse(stored)); } catch {}
     return new Set(["__ALL__"]);
   });
 
@@ -922,15 +689,13 @@ function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onSho
   const toggleBucket = (bucket: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(bucket)) next.delete(bucket);
-      else next.add(bucket);
+      if (next.has(bucket)) next.delete(bucket); else next.add(bucket);
       try { localStorage.setItem(BUCKET_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
       return next;
     });
   };
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
   if (tasks.length === 0) return <p className="text-center text-gray-500 py-8">No tasks match the selected filters.</p>;
 
   return (
@@ -949,12 +714,10 @@ function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onSho
               <div className="flex flex-col gap-3 pb-1">
                 {bucketTasks.map((task) => (
                   <TaskCard
-                    key={task.ID} task={task}
-                    expanded={expandedId === task.ID}
+                    key={task.ID} task={task} expanded={expandedId === task.ID}
                     onToggle={() => setExpandedId((prev) => (prev === task.ID ? null : task.ID))}
-                    allTasks={allTasks} getToken={getToken}
-                    onSave={onSave} onDelete={onDelete}
-                    onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask}
+                    allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete}
+                    onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} onRefetch={onRefetch}
                     formatDate={formatDate} truncate={truncate}
                   />
                 ))}
@@ -971,7 +734,7 @@ export default function Dashboard() {
   const isAuthenticated = useIsAuthenticated();
   const router = useRouter();
   const { instance, accounts } = useMsal();
-  const { tasks, loading, error, refetch } = useSharePointTasks();
+  const { tasks, loading, error, isThrottled, retryNow, refetch } = useSharePointTasks();
 
   const [filters, setFilters] = useState<Filters>({
     brand: "All", status: "All", priority: "All", flag: "All",
@@ -979,18 +742,14 @@ export default function Dashboard() {
   });
   const [sortField, setSortField] = useState<SortField>("ID");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("card"); // FIX 1: Card is default
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ── Column resize state ───────────────────────────────────────────────────
   const [colWidths, setColWidths] = useState<Record<string, number>>(COL_DEFAULT_WIDTHS);
 
-  useEffect(() => {
-    setColWidths(loadColWidths());
-  }, []);
+  useEffect(() => { setColWidths(loadColWidths()); }, []);
 
   const handleResize = useCallback((colKey: string, delta: number) => {
     setColWidths((prev) => {
@@ -1004,16 +763,10 @@ export default function Dashboard() {
 
   const getToken = useCallback(async (): Promise<string> => {
     try {
-      const response = await instance.acquireTokenSilent({
-        scopes: SP_SCOPES,
-        account: accounts[0],
-      });
+      const response = await instance.acquireTokenSilent({ scopes: SP_SCOPES, account: accounts[0] });
       return response.accessToken;
     } catch {
-      const response = await instance.acquireTokenPopup({
-        scopes: SP_SCOPES,
-        account: accounts[0],
-      });
+      const response = await instance.acquireTokenPopup({ scopes: SP_SCOPES, account: accounts[0] });
       return response.accessToken;
     }
   }, [instance, accounts]);
@@ -1024,18 +777,10 @@ export default function Dashboard() {
     toastTimer.current = setTimeout(() => setToastVisible(false), 2500);
   }, []);
 
-  useEffect(() => {
-    if (!isAuthenticated) router.push("/");
-  }, [isAuthenticated, router]);
+  useEffect(() => { if (!isAuthenticated) router.push("/"); }, [isAuthenticated, router]);
 
-  const setFilter = (key: keyof Filters, value: string) =>
-    setFilters((prev) => ({ ...prev, [key]: value }));
-
-  const clearFilters = () => setFilters({
-    brand: "All", status: "All", priority: "All", flag: "All",
-    phase: "All", quarter: "All", owner: "All", assignTo: "All",
-  });
-
+  const setFilter = (key: keyof Filters, value: string) => setFilters((prev) => ({ ...prev, [key]: value }));
+  const clearFilters = () => setFilters({ brand: "All", status: "All", priority: "All", flag: "All", phase: "All", quarter: "All", owner: "All", assignTo: "All" });
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortField(field); setSortDir("asc"); }
@@ -1067,9 +812,7 @@ export default function Dashboard() {
       if (filters.assignTo !== "All" && t.Assign_x0020_To?.Title !== filters.assignTo) return false;
       return true;
     });
-
     const pOrder: Record<string, number> = { Critical: 0, Urgent: 1, Important: 2, Normal: 3, Low: 4 };
-
     return [...result].sort((a, b) => {
       let aVal: any, bVal: any;
       switch (sortField) {
@@ -1079,18 +822,12 @@ export default function Dashboard() {
         case "field_8": aVal = pOrder[a.field_8] ?? 99; bVal = pOrder[b.field_8] ?? 99; break;
         case "Status": aVal = a.Status || ""; bVal = b.Status || ""; break;
         case "Flag": aVal = a.Flag || "None"; bVal = b.Flag || "None"; break;
-        case "field_6":
-          aVal = parseInt((a.field_6 || "0").replace("%", "")) || 0;
-          bVal = parseInt((b.field_6 || "0").replace("%", "")) || 0; break;
+        case "field_6": aVal = parseInt((a.field_6 || "0").replace("%", "")) || 0; bVal = parseInt((b.field_6 || "0").replace("%", "")) || 0; break;
         case "field_4": aVal = a.field_4 || ""; bVal = b.field_4 || ""; break;
         case "field_5": aVal = a.field_5 || ""; bVal = b.field_5 || ""; break;
         case "field_3": aVal = a.field_3 || ""; bVal = b.field_3 || ""; break;
-        case "StartDate_x0028_DT_x0029_":
-          aVal = a.StartDate_x0028_DT_x0029_ ? new Date(a.StartDate_x0028_DT_x0029_).getTime() : 0;
-          bVal = b.StartDate_x0028_DT_x0029_ ? new Date(b.StartDate_x0028_DT_x0029_).getTime() : 0; break;
-        case "DueDate_DT":
-          aVal = a.DueDate_DT ? new Date(a.DueDate_DT).getTime() : 0;
-          bVal = b.DueDate_DT ? new Date(b.DueDate_DT).getTime() : 0; break;
+        case "StartDate_x0028_DT_x0029_": aVal = a.StartDate_x0028_DT_x0029_ ? new Date(a.StartDate_x0028_DT_x0029_).getTime() : 0; bVal = b.StartDate_x0028_DT_x0029_ ? new Date(b.StartDate_x0028_DT_x0029_).getTime() : 0; break;
+        case "DueDate_DT": aVal = a.DueDate_DT ? new Date(a.DueDate_DT).getTime() : 0; bVal = b.DueDate_DT ? new Date(b.DueDate_DT).getTime() : 0; break;
         case "Owner": aVal = a.Owner?.Title || ""; bVal = b.Owner?.Title || ""; break;
         case "Assign_x0020_To": aVal = a.Assign_x0020_To?.Title || ""; bVal = b.Assign_x0020_To?.Title || ""; break;
         default: aVal = 0; bVal = 0;
@@ -1115,63 +852,40 @@ export default function Dashboard() {
   const handleSave = async (id: number, updates: Record<string, any>) => {
     try {
       const tok = await getToken();
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify(updates),
-      });
+      const res = await fetch(`/api/tasks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: JSON.stringify(updates) });
       if (!res.ok) { const d = await res.json(); console.error("PATCH failed:", d); throw new Error("Save failed"); }
       await refetch();
+      setTimeout(() => { refetch(); }, 2000); // FIX 4: delayed refetch catches Flow A1 Status update
     } catch (err: any) { console.error("handleSave error:", err); throw err; }
   };
 
   const handleDelete = async (id: number, brand: string) => {
     try {
       const tok = await getToken();
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({ brand }),
-      });
+      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: JSON.stringify({ brand }) });
       if (!res.ok) { const d = await res.json(); console.error("DELETE failed:", d); throw new Error("Delete failed"); }
-      setExpandedRowId(null);
-      await refetch();
+      setExpandedRowId(null); await refetch();
     } catch (err: any) { console.error("handleDelete error:", err); throw err; }
   };
 
   const handleCreate = async (payload: Record<string, any>) => {
     try {
       const tok = await getToken();
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: JSON.stringify(payload) });
       if (!res.ok) { const d = await res.json(); console.error("POST failed:", d); throw new Error("Create failed"); }
-      setShowCreateModal(false);
-      await refetch();
+      setShowCreateModal(false); await refetch();
     } catch (err: any) { console.error("handleCreate error:", err); throw err; }
   };
 
-  // ── Column header builders ─────────────────────────────────────────────────
   const thStyle = (colKey: string): React.CSSProperties => ({
-    position: "relative",
-    width: `${colWidths[colKey] ?? 100}px`,
-    minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`,
-    maxWidth: `${colWidths[colKey] ?? 100}px`,
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-    padding: "10px 12px 10px 12px",
-    verticalAlign: "middle",
+    position: "relative", width: `${colWidths[colKey] ?? 100}px`,
+    minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`, maxWidth: `${colWidths[colKey] ?? 100}px`,
+    overflow: "hidden", whiteSpace: "nowrap", padding: "10px 12px", verticalAlign: "middle",
   });
 
   const tdStyle = (colKey: string): React.CSSProperties => ({
-    width: `${colWidths[colKey] ?? 100}px`,
-    minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`,
-    maxWidth: `${colWidths[colKey] ?? 100}px`,
-    overflow: "hidden",
-    padding: "8px 12px",
-    verticalAlign: "middle",
+    width: `${colWidths[colKey] ?? 100}px`, minWidth: `${COL_MIN_WIDTHS[colKey] ?? 80}px`,
+    maxWidth: `${colWidths[colKey] ?? 100}px`, overflow: "hidden", padding: "8px 12px", verticalAlign: "middle",
   });
 
   const SortHeader = ({ label, field, colKey }: { label: string; field: SortField; colKey: string }) => (
@@ -1226,36 +940,47 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* FIX 2: Cards first, List second */}
           <div className="hidden md:flex items-center bg-gray-800 rounded-lg p-1 gap-1">
-            <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>☰ List</button>
             <button onClick={() => setViewMode("card")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>⊞ Cards</button>
+            <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>☰ List</button>
           </div>
           <button onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors">+ New Task</button>
         </div>
       </div>
 
-      {loading && <p className="text-gray-400">Loading tasks from SharePoint...</p>}
-      {error && <p className="text-red-400">Error: {error}</p>}
+      {isThrottled && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#451a03", border: "1px solid #92400e", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "18px" }}>⏳</span>
+            <div>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#fcd34d", margin: 0 }}>SharePoint is throttled (429)</p>
+              <p style={{ fontSize: "12px", color: "#d97706", margin: "2px 0 0" }}>Too many requests were sent. Wait a moment, then retry.</p>
+            </div>
+          </div>
+          <button onClick={retryNow}
+            style={{ flexShrink: 0, marginLeft: "16px", background: "#92400e", color: "#fcd34d", border: "1px solid #b45309", borderRadius: "6px", padding: "6px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#b45309"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#92400e"; }}>
+            Try Again
+          </button>
+        </div>
+      )}
 
-      {!loading && !error && (
+      {loading && <p className="text-gray-400">Loading tasks from SharePoint...</p>}
+      {error && !isThrottled && <p className="text-red-400">Error: {error}</p>}
+
+      {!loading && !error && !isThrottled && (
         <>
           <div className="md:hidden">
-            <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} formatDate={formatDate} truncate={truncate} />
+            <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} />
           </div>
           <div className="hidden md:block">
             {viewMode === "card" ? (
-              <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} formatDate={formatDate} truncate={truncate} />
+              <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} />
             ) : (
               <div style={{ width: "100%", overflowX: "auto", overflowY: "visible" }} className="rounded-lg border border-gray-800">
-                <table
-                  style={{
-                    tableLayout: "fixed",
-                    width: `${totalTableWidth}px`,
-                    minWidth: "100%",
-                    borderCollapse: "collapse",
-                    overflow: "visible",
-                  }}
-                >
+                <table style={{ tableLayout: "fixed", width: `${totalTableWidth}px`, minWidth: "100%", borderCollapse: "collapse", overflow: "visible" }}>
                   <thead className="bg-gray-900 border-b border-gray-800" style={{ overflow: "visible" }}>
                     <tr style={{ overflow: "visible" }}>
                       <SortHeader label="Task ID" field="ID" colKey="ID" />
@@ -1283,12 +1008,10 @@ export default function Dashboard() {
                     ) : (
                       filtered.map((task) => (
                         <>
-                          <tr
-                            key={task.ID}
+                          <tr key={task.ID}
                             onClick={() => setExpandedRowId(expandedRowId === task.ID ? null : task.ID)}
                             className={`transition-colors duration-100 cursor-pointer ${expandedRowId === task.ID ? "bg-gray-800" : "hover:bg-gray-900"}`}
-                            style={{ height: "40px" }}
-                          >
+                            style={{ height: "40px" }}>
                             <td style={tdStyle("ID")} className="text-gray-500 text-xs font-mono">#{task.ID}</td>
                             <td style={tdStyle("Title")} className="text-white font-medium">
                               <span className="flex items-center gap-2 overflow-hidden">
@@ -1315,7 +1038,7 @@ export default function Dashboard() {
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
                               <td colSpan={17} className="bg-gray-800 border-b border-gray-700" style={{ padding: "20px 24px" }}>
-                                <InlinePanel task={task} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} />
+                                <InlinePanel task={task} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} />
                               </td>
                             </tr>
                           )}
