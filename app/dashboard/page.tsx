@@ -467,7 +467,6 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
     );
   }
 
-  // ── Edit mode ─────────────────────────────────────────────────────────────
   return (
     <div style={{ width: "100%" }}>
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">Edit — #{task.ID}</p>
@@ -734,7 +733,7 @@ export default function Dashboard() {
   const isAuthenticated = useIsAuthenticated();
   const router = useRouter();
   const { instance, accounts } = useMsal();
-  const { tasks, loading, error, isThrottled, retryNow, refetch } = useSharePointTasks();
+  const { tasks, loading, error, isThrottled, retryCountdown, retryNow, refetch } = useSharePointTasks();
 
   const [filters, setFilters] = useState<Filters>({
     brand: "All", status: "All", priority: "All", flag: "All",
@@ -742,7 +741,7 @@ export default function Dashboard() {
   });
   const [sortField, setSortField] = useState<SortField>("ID");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [viewMode, setViewMode] = useState<ViewMode>("card"); // FIX 1: Card is default
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
@@ -855,7 +854,7 @@ export default function Dashboard() {
       const res = await fetch(`/api/tasks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: JSON.stringify(updates) });
       if (!res.ok) { const d = await res.json(); console.error("PATCH failed:", d); throw new Error("Save failed"); }
       await refetch();
-      setTimeout(() => { refetch(); }, 2000); // FIX 4: delayed refetch catches Flow A1 Status update
+      setTimeout(() => { refetch(); }, 2000);
     } catch (err: any) { console.error("handleSave error:", err); throw err; }
   };
 
@@ -940,7 +939,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* FIX 2: Cards first, List second */}
           <div className="hidden md:flex items-center bg-gray-800 rounded-lg p-1 gap-1">
             <button onClick={() => setViewMode("card")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "card" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>⊞ Cards</button>
             <button onClick={() => setViewMode("list")} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === "list" ? "bg-gray-600 text-white" : "text-gray-400 hover:text-white"}`}>☰ List</button>
@@ -955,7 +953,11 @@ export default function Dashboard() {
             <span style={{ fontSize: "18px" }}>⏳</span>
             <div>
               <p style={{ fontSize: "13px", fontWeight: 600, color: "#fcd34d", margin: 0 }}>SharePoint is throttled (429)</p>
-              <p style={{ fontSize: "12px", color: "#d97706", margin: "2px 0 0" }}>Too many requests were sent. Wait a moment, then retry.</p>
+              <p style={{ fontSize: "12px", color: "#d97706", margin: "2px 0 0" }}>
+                {retryCountdown !== null && retryCountdown > 0
+                  ? `Auto-retrying in ${retryCountdown}s…`
+                  : "Retrying now…"}
+              </p>
             </div>
           </div>
           <button onClick={retryNow}
