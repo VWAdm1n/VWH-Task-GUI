@@ -954,9 +954,7 @@ export default function Dashboard() {
             <div>
               <p style={{ fontSize: "13px", fontWeight: 600, color: "#fcd34d", margin: 0 }}>SharePoint is throttled (429)</p>
               <p style={{ fontSize: "12px", color: "#d97706", margin: "2px 0 0" }}>
-                {retryCountdown !== null && retryCountdown > 0
-                  ? `Auto-retrying in ${retryCountdown}s…`
-                  : "Retrying now…"}
+                SharePoint is throttled. Click Try Again when ready.
               </p>
             </div>
           </div>
