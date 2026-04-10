@@ -733,7 +733,7 @@ export default function Dashboard() {
   const isAuthenticated = useIsAuthenticated();
   const router = useRouter();
   const { instance, accounts } = useMsal();
-  const { tasks, loading, error, isThrottled, retryCountdown, retryNow, refetch } = useSharePointTasks();
+  const { tasks, loading, error, isThrottled, retryNow, refetch } = useSharePointTasks();
 
   const [filters, setFilters] = useState<Filters>({
     brand: "All", status: "All", priority: "All", flag: "All",
