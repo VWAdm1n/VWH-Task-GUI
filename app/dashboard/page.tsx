@@ -113,9 +113,9 @@ function ProgressBar({ pct, total, completed, compact = false }: {
   );
 }
 
-function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
+function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly, isThrottled }: {
   taskId: number; getToken: () => Promise<string>;
-  onProgressUpdate: (pct: number) => void; readOnly: boolean;
+  onProgressUpdate: (pct: number) => void; readOnly: boolean; isThrottled: boolean;
 }) {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     finally { setLoading(false); }
   }, [taskId, getToken]);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { if (!isThrottled) fetchItems(); }, [fetchItems, isThrottled]);
   useEffect(() => { onProgressUpdate(pct); }, [pct, onProgressUpdate]);
 
   const toggleItem = async (item: ChecklistItem) => {
@@ -178,6 +178,7 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
     } catch (err) { console.error("Remove error:", err); }
   };
 
+  if (isThrottled) return <p className="text-xs text-yellow-600 mt-2">Subtasks unavailable — SharePoint throttled.</p>;
   if (loading) return <p className="text-xs text-gray-500 mt-2">Loading subtasks…</p>;
 
   return (
@@ -214,9 +215,9 @@ function SubtaskPanel({ taskId, getToken, onProgressUpdate, readOnly }: {
   );
 }
 
-function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, readOnly }: {
+function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, readOnly, isThrottled }: {
   taskId: number; getToken: () => Promise<string>; allTasks: any[];
-  onRequestCreateTask: () => void; readOnly: boolean;
+  onRequestCreateTask: () => void; readOnly: boolean; isThrottled: boolean;
 }) {
   const [deps, setDeps] = useState<DependencyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,7 +240,7 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
     finally { setLoading(false); }
   }, [taskId, getToken, allTasks]);
 
-  useEffect(() => { fetchDeps(); }, [fetchDeps]);
+  useEffect(() => { if (!isThrottled) fetchDeps(); }, [fetchDeps, isThrottled]);
 
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
@@ -272,6 +273,7 @@ function DependencyPanel({ taskId, getToken, allTasks, onRequestCreateTask, read
     } catch (err) { console.error("Remove dep error:", err); }
   };
 
+  if (isThrottled) return <p className="text-xs text-yellow-600 mt-2">Prerequisites unavailable — SharePoint throttled.</p>;
   if (loading) return <p className="text-xs text-gray-500 mt-2">Loading prerequisites…</p>;
 
   return (
@@ -332,12 +334,12 @@ function SavedToast({ visible }: { visible: boolean }) {
   );
 }
 
-function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onShowToast, onRequestCreateTask, onRefetch }: {
+function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onShowToast, onRequestCreateTask, onRefetch, isThrottled }: {
   task: any; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onClose: () => void; onShowToast: () => void; onRequestCreateTask: () => void;
-  onRefetch: () => void;
+  onRefetch: () => void; isThrottled: boolean;
 }) {
   const [mode, setMode] = useState<PanelMode>("details");
   const [title, setTitle] = useState(task.Title || "");
@@ -446,9 +448,9 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
         {task.BlockReason && <div className="mb-3"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Block Reason</span><span className="text-red-300 text-sm italic">{task.BlockReason}</span></div>}
         {task.field_11 && <div className="mb-4"><span className="text-gray-500 text-xs uppercase tracking-wide block mb-0.5">Notes</span><span className="text-gray-300 text-sm whitespace-pre-wrap">{task.field_11}</span></div>}
         <hr className="border-gray-700 mb-3" />
-        <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
+        <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} isThrottled={isThrottled} />
         <hr className="border-gray-700 mt-4 mb-3" />
-        <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={true} />
+        <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={true} isThrottled={isThrottled} />
         <hr className="border-gray-700 mt-4 mb-4" />
         <div style={{ textAlign: "center", marginTop: "8px" }}>
           <button onClick={() => setMode("edit")} style={{ ...btnBase, background: "#2563eb", color: "#fff" }}
@@ -538,9 +540,9 @@ function InlinePanel({ task, allTasks, getToken, onSave, onDelete, onClose, onSh
         </div>
       </div>
       <hr className="border-gray-700 mb-3" />
-      <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} />
+      <SubtaskPanel taskId={task.ID} getToken={getToken} onProgressUpdate={handleProgressUpdate} readOnly={false} isThrottled={isThrottled} />
       <hr className="border-gray-700 mt-4 mb-3" />
-      <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={false} />
+      <DependencyPanel taskId={task.ID} getToken={getToken} allTasks={allTasks} onRequestCreateTask={onRequestCreateTask} readOnly={false} isThrottled={isThrottled} />
       <hr className="border-gray-700 mt-4 mb-4" />
       <div style={{ textAlign: "center", marginTop: "8px" }}>
         <button onClick={handleSave} disabled={saving} style={{ ...btnBase, background: "#2563eb", color: "#fff", opacity: saving ? 0.5 : 1 }}
@@ -617,12 +619,13 @@ function ResizeHandle({ colKey, onResize }: { colKey: string; onResize: (colKey:
   );
 }
 
-function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate }: {
+function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate, isThrottled }: {
   task: any; expanded: boolean; onToggle: () => void; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onShowToast: () => void; onRequestCreateTask: () => void; onRefetch: () => void;
   formatDate: (v: string | null) => string; truncate: (v: string | null | undefined, len?: number) => string | null;
+  isThrottled: boolean;
 }) {
   const pct = task.field_6 ? parseInt((task.field_6 as string).replace("%", "")) || 0 : 0;
   return (
@@ -652,19 +655,20 @@ function TaskCard({ task, expanded, onToggle, allTasks, getToken, onSave, onDele
       </div>
       <div style={{ overflow: "hidden", maxHeight: expanded ? "1400px" : "0px", opacity: expanded ? 1 : 0, transition: "max-height 350ms ease, opacity 250ms ease" }}>
         <div className="px-4 pb-4 border-t border-gray-700 pt-3">
-          <InlinePanel task={task} allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} onRefetch={onRefetch} />
+          <InlinePanel task={task} allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete} onClose={onToggle} onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} onRefetch={onRefetch} isThrottled={isThrottled} />
         </div>
       </div>
     </div>
   );
 }
 
-function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate }: {
+function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onShowToast, onRequestCreateTask, onRefetch, formatDate, truncate, isThrottled }: {
   tasks: any[]; allTasks: any[]; getToken: () => Promise<string>;
   onSave: (id: number, updates: Record<string, any>) => Promise<void>;
   onDelete: (id: number, brand: string) => Promise<void>;
   onShowToast: () => void; onRequestCreateTask: () => void; onRefetch: () => void;
   formatDate: (v: string | null) => string; truncate: (v: string | null | undefined, len?: number) => string | null;
+  isThrottled: boolean;
 }) {
   const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -717,7 +721,7 @@ function BucketGroupedCards({ tasks, allTasks, getToken, onSave, onDelete, onSho
                     onToggle={() => setExpandedId((prev) => (prev === task.ID ? null : task.ID))}
                     allTasks={allTasks} getToken={getToken} onSave={onSave} onDelete={onDelete}
                     onShowToast={onShowToast} onRequestCreateTask={onRequestCreateTask} onRefetch={onRefetch}
-                    formatDate={formatDate} truncate={truncate}
+                    formatDate={formatDate} truncate={truncate} isThrottled={isThrottled}
                   />
                 ))}
               </div>
@@ -973,11 +977,11 @@ export default function Dashboard() {
       {!loading && !error && !isThrottled && (
         <>
           <div className="md:hidden">
-            <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} />
+            <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} isThrottled={isThrottled} />
           </div>
           <div className="hidden md:block">
             {viewMode === "card" ? (
-              <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} />
+              <BucketGroupedCards tasks={filtered} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} formatDate={formatDate} truncate={truncate} isThrottled={isThrottled} />
             ) : (
               <div style={{ width: "100%", overflowX: "auto", overflowY: "visible" }} className="rounded-lg border border-gray-800">
                 <table style={{ tableLayout: "fixed", width: `${totalTableWidth}px`, minWidth: "100%", borderCollapse: "collapse", overflow: "visible" }}>
@@ -1038,7 +1042,7 @@ export default function Dashboard() {
                           {expandedRowId === task.ID && (
                             <tr key={`${task.ID}-expanded`}>
                               <td colSpan={17} className="bg-gray-800 border-b border-gray-700" style={{ padding: "20px 24px" }}>
-                                <InlinePanel task={task} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} />
+                                <InlinePanel task={task} allTasks={tasks} getToken={getToken} onSave={handleSave} onDelete={handleDelete} onClose={() => setExpandedRowId(null)} onShowToast={showToast} onRequestCreateTask={() => setShowCreateModal(true)} onRefetch={refetch} isThrottled={isThrottled} />
                               </td>
                             </tr>
                           )}
