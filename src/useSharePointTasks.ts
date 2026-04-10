@@ -18,26 +18,16 @@ export function useSharePointTasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isThrottled, setIsThrottled] = useState(false);
-  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
   const accountId = accounts[0]?.homeAccountId ?? null;
   const accountRef = useRef(accounts);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   accountRef.current = accounts;
-
-  const clearTimers = () => {
-    if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
-    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
-  };
 
   const fetchTasks = useCallback(async () => {
     if (!accountId) return;
-    clearTimers();
     setLoading(true);
     setError(null);
     setIsThrottled(false);
-    setRetryCountdown(null);
 
     try {
       const tokenResponse = await instance.acquireTokenSilent({
@@ -51,33 +41,9 @@ export function useSharePointTasks() {
       );
 
       if (response.status === 429) {
-        // Read SharePoint's Retry-After header — default 60s if not present
-        const retryAfterHeader = response.headers.get("Retry-After");
-        const waitSeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 60;
-        const safeWait = isNaN(waitSeconds) || waitSeconds < 5 ? 60 : waitSeconds;
-
         setIsThrottled(true);
         setLoading(false);
-        setRetryCountdown(safeWait);
-
-        // Live countdown display
-        let remaining = safeWait;
-        countdownTimerRef.current = setInterval(() => {
-          remaining -= 1;
-          setRetryCountdown(remaining);
-          if (remaining <= 0) {
-            if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-          }
-        }, 1000);
-
-        // Auto-retry after the wait period
-        retryTimerRef.current = setTimeout(() => {
-          setIsThrottled(false);
-          setRetryCountdown(null);
-          fetchTasks();
-        }, safeWait * 1000);
-
-        return;
+        return; // Full stop. No auto-retry. Operator clicks Try Again.
       }
 
       if (!response.ok) {
@@ -92,13 +58,11 @@ export function useSharePointTasks() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance, accountId]);
 
   useEffect(() => {
     fetchTasks();
-    return () => clearTimers();
   }, [fetchTasks]);
 
-  return { tasks, loading, error, isThrottled, retryCountdown, refetch: fetchTasks, retryNow: fetchTasks };
+  return { tasks, loading, error, isThrottled, refetch: fetchTasks, retryNow: fetchTasks };
 }
